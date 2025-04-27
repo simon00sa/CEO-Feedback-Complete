@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --sidebar-background: 240 10% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 221 83% 53%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 221 83% 53%;
+    
+    --radius: 0.5rem;
+    
+    --user-message: 210 30% 20%;
+    --user-message-foreground: 210 30% 90%;
+    
+    --ai-message: 240 4% 13%;
+    --ai-message-foreground: 0 0% 98%;
+    
+    --success: 142 72% 50%;
+    --warning: 38 92% 50%;
+    --alert: 0 72% 51%;
+    
+    --chart-1: 221 83% 53%;
+    --chart-2: 212 95% 68%;
+    --chart-3: 216 92% 60%;
+    --chart-4: 210 98% 78%;
+    --chart-5: 212 97% 87%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  @apply bg-muted/30;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted/80;
+}
+
+.resizable-sidebar {
+  min-width: 200px;
+  max-width: 400px;
+  width: 256px;
+  resize: horizontal;
+  overflow: auto;
+}
