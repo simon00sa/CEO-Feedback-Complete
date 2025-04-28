@@ -1,11 +1,22 @@
-// This file contains AI functionality for the anonymous feedback platform using Eden AI
+// This file contains AI functionality for the anonymous feedback platform
+// Using OpenAI directly for chat and Eden AI for anonymization
 
-// Eden AI API configuration
+import OpenAI from 'openai';
+
+// OpenAI API configuration
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
+
+// Eden AI API configuration (kept for anonymization)
 const EDEN_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGQ5YmFlYzItOTBiYi00OGEzLWFlMmQtNjljM2ZkZGE5OWNmIiwidHlwZSI6InNhbmRib3hfYXBpX3Rva2VuIiwibmFtZSI6IkZlZWRiYWNrIEFwcCIsImlzX2N1c3RvbSI6dHJ1ZX0.l-GSu2x4rjFrPO9mSVooV4pKBRfp3KuXbHnWGuIdhqw";
 const EDEN_API_URL = "https://api.edenai.run/v2";
 
-export class EdenAI {
-  // Process user message and generate AI response
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+});
+
+export class AI {
+  // Process user message and generate AI response using OpenAI directly
   static async processMessage(message: string, conversation: any[]): Promise<{
     response: string;
     anonymized?: string;
@@ -16,35 +27,34 @@ export class EdenAI {
     }
   }> {
     try {
-      // For production, this would call the Eden AI API
-      const response = await fetch(`${EDEN_API_URL}/text/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${EDEN_API_KEY}`
-        },
-        body: JSON.stringify({
-          providers: ["openai"],
-          text: message,
-          previous_history: conversation.map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            message: msg.content
-          })),
-          temperature: 0.7,
-          max_tokens: 150
-        }),
+      console.log("Processing message with OpenAI:", message);
+      
+      // Format conversation history for OpenAI
+      const formattedMessages = conversation.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }));
+      
+      // Add the current message
+      formattedMessages.push({
+        role: 'user',
+        content: message
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to get response from Eden AI');
-      }
+      // Call OpenAI API directly
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini", // Using GPT-4o mini as recommended
+        messages: formattedMessages,
+        temperature: 0.7,
+        max_tokens: 250,
+      });
       
-      const data = await response.json();
-      const aiResponse = data.openai?.generated_text || "I'm sorry, I couldn't process your message.";
+      const aiResponse = completion.choices[0]?.message?.content || "I'm sorry, I couldn't process your message.";
+      console.log("OpenAI response:", aiResponse);
       
       // Categorize the message
-      let category = await EdenAI.categorizeMessage(message);
-      let priority = EdenAI.calculatePriority(category, message);
+      let category = await AI.categorizeMessage(message);
+      let priority = AI.calculatePriority(category, message);
       
       // If this is the final message in the conversation, also anonymize the feedback
       let anonymized = null;
@@ -59,7 +69,7 @@ export class EdenAI {
         const fullFeedback = userMessages + "\n" + message;
         
         // Anonymize the feedback
-        anonymized = await EdenAI.anonymizeFeedback(fullFeedback);
+        anonymized = await AI.anonymizeFeedback(fullFeedback);
       }
       
       return {
@@ -72,10 +82,10 @@ export class EdenAI {
         }
       };
     } catch (error) {
-      console.error('Error calling Eden AI:', error);
+      console.error('Error calling OpenAI:', error);
       
       // Fallback to local processing if API call fails
-      return EdenAI.localProcessMessage(message, conversation);
+      return AI.localProcessMessage(message, conversation);
     }
   }
   
@@ -121,7 +131,7 @@ export class EdenAI {
     // Check if this is the first message
     if (conversation.length === 0) {
       return {
-        response: "Thank you for reaching out. I'm here to collect your anonymous feedback. Could you please share what's on your mind?",
+        response: "Hello! I'm here to help you provide anonymous feedback to leadership. Your identity will be protected through our anonymization process. What would you like to share today?",
         metadata: {
           isQuestion: true
         }
@@ -175,37 +185,37 @@ export class EdenAI {
     };
   }
   
-  // Categorize message using Eden AI
+  // Categorize message using OpenAI
   private static async categorizeMessage(message: string): Promise<string> {
     try {
-      const response = await fetch(`${EDEN_API_URL}/text/classification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${EDEN_API_KEY}`
-        },
-        body: JSON.stringify({
-          providers: ["openai"],
-          text: message,
-          categories: ["Workload", "Communication", "Benefits", "Office Environment", "Management", "Culture", "Technology", "Other"]
-        }),
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that categorizes workplace feedback into one of these categories: Workload, Communication, Benefits, Office Environment, Management, Culture, Technology, Other. Respond with only the category name."
+          },
+          {
+            role: "user",
+            content: `Categorize this feedback: "${message}"`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 20,
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to categorize message');
-      }
+      const category = completion.choices[0]?.message?.content?.trim() || "Other";
       
-      const data = await response.json();
-      const categories = data.openai?.items || [];
+      // Ensure the category is one of our predefined categories
+      const validCategories = ["Workload", "Communication", "Benefits", "Office Environment", "Management", "Culture", "Technology", "Other"];
       
-      // Return the highest confidence category
-      if (categories.length > 0) {
-        return categories[0].category;
+      if (validCategories.includes(category)) {
+        return category;
       }
       
       return "Other";
     } catch (error) {
-      console.error('Error categorizing message:', error);
+      console.error('Error categorizing message with OpenAI:', error);
       return "Other";
     }
   }
@@ -228,9 +238,33 @@ export class EdenAI {
     return 1;
   }
   
-  // Anonymize user feedback using Eden AI
+  // Anonymize user feedback using Eden AI (keeping this functionality)
   static async anonymizeFeedback(originalText: string): Promise<string> {
     try {
+      // First try using OpenAI directly for anonymization
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an anonymization assistant. Your task is to anonymize the following text by removing or replacing any personally identifiable information such as names, email addresses, phone numbers, specific locations, and organization names. Replace names with 'a person' or 'a colleague', emails with '[email]', phone numbers with '[phone]', locations with '[location]', and organizations with '[organization]'. Also change first-person references ('I', 'my', 'me') to third-person ('the person', 'their', 'them')."
+          },
+          {
+            role: "user",
+            content: originalText
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      
+      const anonymizedText = completion.choices[0]?.message?.content || "";
+      
+      if (anonymizedText) {
+        return anonymizedText;
+      }
+      
+      // Fallback to Eden AI if OpenAI fails
       const response = await fetch(`${EDEN_API_URL}/text/anonymization`, {
         method: 'POST',
         headers: {
@@ -245,14 +279,14 @@ export class EdenAI {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to anonymize feedback');
+        throw new Error('Failed to anonymize feedback with Eden AI');
       }
       
       const data = await response.json();
-      return data.openai?.result || EdenAI.localAnonymizeFeedback(originalText);
+      return data.openai?.result || AI.localAnonymizeFeedback(originalText);
     } catch (error) {
       console.error('Error anonymizing feedback:', error);
-      return EdenAI.localAnonymizeFeedback(originalText);
+      return AI.localAnonymizeFeedback(originalText);
     }
   }
   
@@ -277,7 +311,7 @@ export class EdenAI {
     return anonymized;
   }
   
-  // Analyze feedback for trends and insights
+  // Analyze feedback for trends and insights using OpenAI
   static async analyzeFeedback(feedbackItems: any[]): Promise<{
     topCategories: { name: string, count: number }[];
     sentimentByDepartment: { department: string, sentiment: number }[];
@@ -290,59 +324,53 @@ export class EdenAI {
         .map(item => item.content)
         .join("\n\n");
       
-      // Call Eden AI for sentiment analysis
-      const sentimentResponse = await fetch(`${EDEN_API_URL}/text/sentiment_analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${EDEN_API_KEY}`
-        },
-        body: JSON.stringify({
-          providers: ["openai"],
-          text: feedbackText,
-          language: "en"
-        }),
+      // Use OpenAI to analyze the feedback
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are an analytics assistant that analyzes workplace feedback. 
+            Analyze the following feedback and provide:
+            1. The top 5 categories of issues mentioned
+            2. 3 urgent issues that need immediate attention
+            3. 3 recommended actions to address the issues
+            
+            Format your response as JSON with the following structure:
+            {
+              "topCategories": [{"name": "Category1", "count": 5}, ...],
+              "urgentIssues": ["Issue 1", "Issue 2", "Issue 3"],
+              "recommendedActions": ["Action 1", "Action 2", "Action 3"]
+            }`
+          },
+          {
+            role: "user",
+            content: feedbackText
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+        response_format: { type: "json_object" }
       });
       
-      if (!sentimentResponse.ok) {
-        throw new Error('Failed to analyze sentiment');
+      const analysisText = completion.choices[0]?.message?.content || "{}";
+      let analysis;
+      
+      try {
+        analysis = JSON.parse(analysisText);
+      } catch (e) {
+        console.error('Error parsing OpenAI analysis response:', e);
+        throw new Error('Failed to parse analysis response');
       }
       
-      const sentimentData = await sentimentResponse.json();
-      
-      // Call Eden AI for text summarization to get urgent issues and recommendations
-      const summaryResponse = await fetch(`${EDEN_API_URL}/text/summarize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${EDEN_API_KEY}`
-        },
-        body: JSON.stringify({
-          providers: ["openai"],
-          text: feedbackText,
-          language: "en",
-          output_sentences: 6
-        }),
-      });
-      
-      if (!summaryResponse.ok) {
-        throw new Error('Failed to summarize feedback');
-      }
-      
-      const summaryData = await summaryResponse.json();
-      
-      // Process the results
-      const sentiment = sentimentData.openai?.sentiment || "neutral";
-      const summary = summaryData.openai?.result || "";
-      
-      // Count categories from feedback items
+      // Count categories from feedback items for backup
       const categoryCount: Record<string, number> = {};
       feedbackItems.forEach(item => {
         const category = item.metadata?.category || "Other";
         categoryCount[category] = (categoryCount[category] || 0) + 1;
       });
       
-      const topCategories = Object.entries(categoryCount)
+      const backupTopCategories = Object.entries(categoryCount)
         .map(([name, count]) => ({ name, count: count as number }))
         .sort((a, b) => b.count - a.count);
       
@@ -354,20 +382,19 @@ export class EdenAI {
         { department: "HR", sentiment: 0.5 }
       ];
       
-      // Extract urgent issues and recommendations from summary
-      const summaryLines = summary.split('. ');
-      const urgentIssues = summaryLines.slice(0, 3).map(line => line.trim() + (line.endsWith('.') ? '' : '.'));
-      const recommendedActions = [
-        "Review project timelines and resource allocation in Engineering",
-        "Implement regular cross-department sync meetings",
-        "Address office temperature regulation issues"
-      ];
-      
       return {
-        topCategories,
+        topCategories: analysis.topCategories || backupTopCategories,
         sentimentByDepartment,
-        urgentIssues,
-        recommendedActions
+        urgentIssues: analysis.urgentIssues || [
+          "Engineering team workload and overtime",
+          "Cross-department communication barriers",
+          "Office temperature complaints"
+        ],
+        recommendedActions: analysis.recommendedActions || [
+          "Review project timelines and resource allocation in Engineering",
+          "Implement regular cross-department sync meetings",
+          "Address office temperature regulation issues"
+        ]
       };
     } catch (error) {
       console.error('Error analyzing feedback:', error);
@@ -401,54 +428,44 @@ export class EdenAI {
     }
   }
   
-  // Generate follow-up questions based on feedback
+  // Generate follow-up questions based on feedback using OpenAI
   static async generateFollowUpQuestions(feedback: string): Promise<string[]> {
     try {
-      const response = await fetch(`${EDEN_API_URL}/text/generation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${EDEN_API_KEY}`
-        },
-        body: JSON.stringify({
-          providers: ["openai"],
-          text: `Based on this feedback: "${feedback}", generate 3 follow-up questions to gather more information. Format as a JSON array of strings.`,
-          temperature: 0.7,
-          max_tokens: 150
-        }),
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an assistant that generates follow-up questions based on workplace feedback. Generate 3 relevant follow-up questions to gather more information. Format your response as a JSON array of strings."
+          },
+          {
+            role: "user",
+            content: `Based on this feedback: "${feedback}", generate 3 follow-up questions.`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
+        response_format: { type: "json_object" }
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to generate follow-up questions');
-      }
+      const responseText = completion.choices[0]?.message?.content || "{}";
+      let response;
       
-      const data = await response.json();
-      const generatedText = data.openai?.generated_text || "";
-      
-      // Try to parse the response as JSON
       try {
-        // Extract JSON array from the response if it's embedded in text
-        const jsonMatch = generatedText.match(/\[.*\]/s);
-        if (jsonMatch) {
-          const questions = JSON.parse(jsonMatch[0]);
-          if (Array.isArray(questions) && questions.length > 0) {
-            return questions;
-          }
+        response = JSON.parse(responseText);
+        if (Array.isArray(response.questions) && response.questions.length > 0) {
+          return response.questions;
+        } else if (Array.isArray(response) && response.length > 0) {
+          return response;
         }
-        
-        // If no JSON array found, split by newlines or numbers
-        return generatedText
-          .split(/\n|(?:\d+\.)/)
-          .map(q => q.trim())
-          .filter(q => q.length > 0 && q.endsWith('?'))
-          .slice(0, 3);
       } catch (e) {
-        console.error('Error parsing follow-up questions:', e);
-        return EdenAI.localGenerateFollowUpQuestions(feedback);
+        console.error('Error parsing follow-up questions response:', e);
       }
+      
+      return AI.localGenerateFollowUpQuestions(feedback);
     } catch (error) {
       console.error('Error generating follow-up questions:', error);
-      return EdenAI.localGenerateFollowUpQuestions(feedback);
+      return AI.localGenerateFollowUpQuestions(feedback);
     }
   }
   
@@ -463,15 +480,31 @@ export class EdenAI {
     } else if (feedback.toLowerCase().includes("communication")) {
       return [
         "Which departments have the most communication challenges?",
-        "What specific information is being siloed?",
-        "Have you tried any solutions to improve communication?"
+        "What specific information is not being shared effectively?",
+        "Have you tried any solutions to improve communication already?"
+      ];
+    } else if (feedback.toLowerCase().includes("benefit")) {
+      return [
+        "Which specific benefits are you concerned about?",
+        "How do our benefits compare to other companies you're aware of?",
+        "What changes would make the biggest positive impact for you?"
+      ];
+    } else if (feedback.toLowerCase().includes("office") || feedback.toLowerCase().includes("environment")) {
+      return [
+        "Which specific aspects of the office environment are problematic?",
+        "How is this affecting your productivity or wellbeing?",
+        "What changes would create a better working environment for you?"
       ];
     } else {
       return [
         "Could you provide more specific details about this issue?",
-        "How long has this been a concern?",
-        "Do you have any suggestions for improvement?"
+        "How long has this been a concern for you?",
+        "What solutions would you suggest to address this?"
       ];
     }
   }
 }
+
+// Export the AI class as the default export
+export default AI;
+
