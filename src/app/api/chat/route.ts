@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { EdenAI } from '@/lib/ai';
+import AI from '@/lib/ai';  // Updated import to use the new AI class
 import { createFeedback, updateFeedbackStatus } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Process message with Eden AI
-    const aiResult = await EdenAI.processMessage(message, conversation);
+    // Process message with OpenAI (via our AI class)
+    const aiResult = await AI.processMessage(message, conversation);
     
     // Generate a timestamp for the message
     const timestamp = new Date().toISOString();
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (conversation.length >= 6) {
       // Anonymize the feedback
       const originalText = message;
-      const anonymizedText = await EdenAI.anonymizeFeedback(originalText);
+      const anonymizedText = await AI.anonymizeFeedback(originalText);
       
       // Create system message with anonymized feedback
       systemMessage = {
@@ -89,3 +89,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
