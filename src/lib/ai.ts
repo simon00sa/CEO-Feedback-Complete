@@ -4,7 +4,7 @@
 import OpenAI from 'openai';
 
 // OpenAI API configuration
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
+const apiKey = process.env.OPENAI_API_KEY || "";
 
 // Eden AI API configuration (kept for anonymization)
 const EDEN_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGQ5YmFlYzItOTBiYi00OGEzLWFlMmQtNjljM2ZkZGE5OWNmIiwidHlwZSI6InNhbmRib3hfYXBpX3Rva2VuIiwibmFtZSI6IkZlZWRiYWNrIEFwcCIsImlzX2N1c3RvbSI6dHJ1ZX0.l-GSu2x4rjFrPO9mSVooV4pKBRfp3KuXbHnWGuIdhqw";
