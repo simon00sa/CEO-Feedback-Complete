@@ -4,7 +4,7 @@
 import OpenAI from 'openai';
 
 // OpenAI API configuration
-const apiKey = process.env.OPENAI_API_KEY || "";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
 // Eden AI API configuration (kept for anonymization)
 const EDEN_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGQ5YmFlYzItOTBiYi00OGEzLWFlMmQtNjljM2ZkZGE5OWNmIiwidHlwZSI6InNhbmRib3hfYXBpX3Rva2VuIiwibmFtZSI6IkZlZWRiYWNrIEFwcCIsImlzX2N1c3RvbSI6dHJ1ZX0.l-GSu2x4rjFrPO9mSVooV4pKBRfp3KuXbHnWGuIdhqw";
@@ -440,71 +440,45 @@ export class AI {
           },
           {
             role: "user",
-            content: `Based on this feedback: "${feedback}", generate 3 follow-up questions.`
+            content: `Based on this feedback, generate 3 follow-up questions: "${feedback}"`
           }
         ],
         temperature: 0.7,
-        max_tokens: 150,
+        max_tokens: 200,
         response_format: { type: "json_object" }
       });
       
-      const responseText = completion.choices[0]?.message?.content || "{}";
-      let response;
+      const questionsText = completion.choices[0]?.message?.content || "[]";
+      let questions;
       
       try {
-        response = JSON.parse(responseText);
-        if (Array.isArray(response.questions) && response.questions.length > 0) {
-          return response.questions;
-        } else if (Array.isArray(response) && response.length > 0) {
-          return response;
+        questions = JSON.parse(questionsText);
+        if (Array.isArray(questions)) {
+          return questions.slice(0, 3);
+        } else if (questions.questions && Array.isArray(questions.questions)) {
+          return questions.questions.slice(0, 3);
         }
       } catch (e) {
-        console.error('Error parsing follow-up questions response:', e);
+        console.error('Error parsing OpenAI questions response:', e);
       }
       
-      return AI.localGenerateFollowUpQuestions(feedback);
+      // Fallback questions if parsing fails
+      return [
+        "Could you provide more specific examples of this issue?",
+        "How has this affected your work or wellbeing?",
+        "What solutions would you suggest to address this concern?"
+      ];
     } catch (error) {
       console.error('Error generating follow-up questions:', error);
-      return AI.localGenerateFollowUpQuestions(feedback);
-    }
-  }
-  
-  // Local fallback for generating follow-up questions
-  private static localGenerateFollowUpQuestions(feedback: string): string[] {
-    if (feedback.toLowerCase().includes("workload")) {
+      
+      // Return default questions if API call fails
       return [
-        "How long has the workload been an issue?",
-        "Are there specific projects that are causing the most stress?",
-        "What resources would help alleviate the situation?"
-      ];
-    } else if (feedback.toLowerCase().includes("communication")) {
-      return [
-        "Which departments have the most communication challenges?",
-        "What specific information is not being shared effectively?",
-        "Have you tried any solutions to improve communication already?"
-      ];
-    } else if (feedback.toLowerCase().includes("benefit")) {
-      return [
-        "Which specific benefits are you concerned about?",
-        "How do our benefits compare to other companies you're aware of?",
-        "What changes would make the biggest positive impact for you?"
-      ];
-    } else if (feedback.toLowerCase().includes("office") || feedback.toLowerCase().includes("environment")) {
-      return [
-        "Which specific aspects of the office environment are problematic?",
-        "How is this affecting your productivity or wellbeing?",
-        "What changes would create a better working environment for you?"
-      ];
-    } else {
-      return [
-        "Could you provide more specific details about this issue?",
-        "How long has this been a concern for you?",
-        "What solutions would you suggest to address this?"
+        "Could you provide more specific examples of this issue?",
+        "How has this affected your work or wellbeing?",
+        "What solutions would you suggest to address this concern?"
       ];
     }
   }
 }
 
-// Export the AI class as the default export
-export default AI;
 
