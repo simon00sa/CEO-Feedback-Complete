@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { 
   MessageSquare, 
   BarChart3, 
@@ -10,7 +11,10 @@ import {
   Settings, 
   User,
   Menu,
-  X
+  X,
+  Shield,
+  UserPlus,
+  Lock
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,48 +28,126 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const { data: session, status } = useSession()
+  const [appName, setAppName] = useState("Speak Up") // Default app name
+
+  // TODO: Fetch appName from settings API when available
+  // useEffect(() => {
+  //   async function fetchAppName() {
+  //     try {
+  //       const response = await fetch("/api/settings");
+  //       if (response.ok) {
+  //         const settings = await response.json();
+  //         if (settings.appName) {
+  //           setAppName(settings.appName);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Failed to fetch app name:", error);
+  //     }
+  //   }
+  //   fetchAppName();
+  // }, []);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed)
   }
 
-  const navItems = [
+  const isAuthenticated = status === "authenticated"
+  const userRole = session?.user?.role?.toUpperCase() || "" // Default to empty string if undefined
+  const isAdmin = userRole === "ADMIN"
+  const isLeadership = userRole === "LEADERSHIP" || userRole === "ADMIN" // Admin can see leadership views
+
+  // Base navigation items available to all authenticated users
+  const baseNavItems = [
     {
-      title: "Feedback",
+      title: "Home",
+      href: "/",
+      icon: Menu,
+      variant: "default",
+      showWhen: "always" // Always show home link
+    },
+    {
+      title: "Submit Feedback",
       href: "/feedback",
       icon: MessageSquare,
       variant: "default",
-      role: "staff"
-    },
-    {
-      title: "Dashboard",
-      href: "/dashboard",
-      icon: BarChart3,
-      variant: "default",
-      role: "leadership"
-    },
-    {
-      title: "Team Management",
-      href: "/teams",
-      icon: Users,
-      variant: "default",
-      role: "admin"
-    },
-    {
-      title: "Settings",
-      href: "/settings",
-      icon: Settings,
-      variant: "default",
-      role: "all"
+      showWhen: "authenticated" // Show to all authenticated users
     },
     {
       title: "Profile",
       href: "/profile",
       icon: User,
       variant: "default",
-      role: "all"
+      showWhen: "authenticated" // Show to all authenticated users
     }
   ]
+
+  // Leadership-specific navigation items
+  const leadershipNavItems = [
+    {
+      title: "Feedback Dashboard",
+      href: "/dashboard/feedback",
+      icon: BarChart3,
+      variant: "default",
+      showWhen: "leadership" // Only show to leadership and admin
+    }
+  ]
+
+  // Admin-specific navigation items
+  const adminNavItems = [
+    {
+      title: "Admin",
+      href: "/admin",
+      icon: Shield,
+      variant: "default",
+      showWhen: "admin" // Only show to admin
+    },
+    {
+      title: "Invitations",
+      href: "/admin/invitations",
+      icon: UserPlus,
+      variant: "default",
+      showWhen: "admin" // Only show to admin
+    },
+    {
+      title: "Teams",
+      href: "/admin/teams",
+      icon: Users,
+      variant: "default",
+      showWhen: "admin" // Only show to admin
+    },
+    {
+      title: "Settings",
+      href: "/admin/settings",
+      icon: Settings,
+      variant: "default",
+      showWhen: "admin" // Only show to admin
+    },
+    {
+      title: "Anonymity",
+      href: "/admin/anonymity",
+      icon: Lock,
+      variant: "default",
+      showWhen: "admin" // Only show to admin
+    }
+  ]
+
+  // Combine all navigation items
+  const allNavItems = [
+    ...baseNavItems,
+    ...leadershipNavItems,
+    ...adminNavItems
+  ]
+
+  // Filter navigation items based on user role and authentication status
+  const visibleNavItems = allNavItems.filter(item => {
+    if (item.showWhen === "always") return true;
+    if (item.showWhen === "authenticated" && isAuthenticated) return true;
+    if (item.showWhen === "leadership" && isLeadership) return true;
+    if (item.showWhen === "admin" && isAdmin) return true;
+    return false;
+  });
 
   return (
     <div
@@ -78,7 +160,7 @@ export function Sidebar({ className }: SidebarProps) {
       <div className="flex items-center justify-between h-14 px-4 border-b border-sidebar-border">
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-sidebar-primary">Speak Up</span>
+            <span className="text-xl font-bold text-sidebar-primary">{appName}</span>
           </Link>
         )}
         <Button 
@@ -92,14 +174,14 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
       <ScrollArea className="flex-1 py-2">
         <nav className="grid gap-1 px-2">
-          {navItems.map((item, index) => (
+          {visibleNavItems.map((item, index) => (
             <Link
               key={index}
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
                 "hover:bg-sidebar-accent hover:text-white",
-                pathname === item.href 
+                pathname === item.href || pathname?.startsWith(item.href + "/")
                   ? "bg-sidebar-accent text-white" 
                   : "text-gray-400",
                 collapsed && "justify-center px-0"
