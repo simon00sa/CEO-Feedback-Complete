@@ -7,7 +7,7 @@ import OpenAI from 'openai';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
 // Eden AI API configuration (kept for anonymization)
-const EDEN_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGQ5YmFlYzItOTBiYi00OGEzLWFlMmQtNjljM2ZkZGE5OWNmIiwidHlwZSI6InNhbmRib3hfYXBpX3Rva2VuIiwibmFtZSI6IkZlZWRiYWNrIEFwcCIsImlzX2N1c3RvbSI6dHJ1ZX0.l-GSu2x4rjFrPO9mSVooV4pKBRfp3KuXbHnWGuIdhqw";
+const EDEN_API_KEY = process.env.EDEN_AI_API_KEY || "";
 const EDEN_API_URL = "https://api.edenai.run/v2";
 
 // Initialize OpenAI client
@@ -480,5 +480,4 @@ export class AI {
     }
   }
 }
-
 
