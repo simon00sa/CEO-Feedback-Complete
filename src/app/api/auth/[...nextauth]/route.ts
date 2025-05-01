@@ -41,19 +41,11 @@ export const authOptions = {
     }),
     // Add other providers here if needed (e.g., Google, GitHub)
   ],
-  pages: {
-    // Specify custom sign-in page if needed, which can handle the invitation token
-    signIn: 
-'/auth/signin
-', 
-    verifyRequest: 
-'/auth/verify-request
-', // Page shown after email verification link is sent
-    // Add a custom sign-up page if needed to handle invitation token explicitly
-    // newUser: 
-'/auth/new-user
-' 
-  },
+pages: {
+  signIn: '/auth/signin', 
+  verifyRequest: '/auth/verify-request', // Page shown after email verification link is sent
+  // newUser: '/auth/new-user' 
+},
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
       // This callback runs when a user tries to sign in or during the email verification process
