@@ -43,7 +43,7 @@ export const authOptions = {
   ],
 pages: {
   signIn: '/auth/signin',
-  verifyRequest: '/auth/verify-request', // Page shown after email verification link is sent
+  verifyRequest: '/auth/verify-request',
   // newUser: '/auth/new-user'
 },
   callbacks: {
