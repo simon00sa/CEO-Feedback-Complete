@@ -1,4 +1,4 @@
-
+'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { toast } from 'sonner'; // Import toast for notifications
