@@ -41,11 +41,11 @@ export const authOptions = {
     }),
     // Add other providers here if needed (e.g., Google, GitHub)
   ],
-pages: {
-  signIn: '/auth/signin',
-  verifyRequest: '/auth/verify-request',
-  // newUser: '/auth/new-user'
-},
+  pages: {
+    signIn: '/auth/signin',
+    verifyRequest: '/auth/verify-request',
+    // newUser: '/auth/new-user'
+  },
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
       // This callback runs when a user tries to sign in or during the email verification process
