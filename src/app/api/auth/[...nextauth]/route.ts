@@ -42,9 +42,9 @@ export const authOptions = {
     // Add other providers here if needed (e.g., Google, GitHub)
   ],
 pages: {
-  signIn: '/auth/signin', 
+  signIn: '/auth/signin',
   verifyRequest: '/auth/verify-request', // Page shown after email verification link is sent
-  // newUser: '/auth/new-user' 
+  // newUser: '/auth/new-user'
 },
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
