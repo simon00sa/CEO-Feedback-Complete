@@ -1,5 +1,3 @@
-"use client"
-
 import { Sidebar } from "@/components/layout/sidebar"
 import { StaffChatClient } from "@/components/staff/staff-chat-client"
 
