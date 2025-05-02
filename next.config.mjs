@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', '@auth/prisma-adapter'],
-  },
+  serverExternalPackages: ['@prisma/client', '@auth/prisma-adapter'],
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
