@@ -6,7 +6,8 @@ import { AdapterUser } from "next-auth/adapters"
 
 const prisma = new PrismaClient()
 
-export const authOptions = {
+// Create a separate authOptions object
+const authConfig = {
   adapter: PrismaAdapter(prisma),
   providers: [
     EmailProvider({
@@ -143,8 +144,12 @@ export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET, // A secret is required for production
 }
 
-const handler = NextAuth(authOptions)
+// Create the handler
+const handler = NextAuth(authConfig)
 
+// Export the handler methods, NOT the authOptions
 export { handler as GET, handler as POST }
 
-
+// Create a separate file for auth.ts to export the authOptions if needed in other files
+// E.g., at src/lib/auth.ts
+// You can then import { authOptions } from "@/lib/auth" in other files
