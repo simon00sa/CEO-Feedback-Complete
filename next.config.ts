@@ -1,7 +1,9 @@
+import { WebpackConfigContext } from 'next/dist/server/config-shared';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@prisma/client', '@auth/prisma-adapter'],
-  webpack: (config) => {
+  webpack: (config: any) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
