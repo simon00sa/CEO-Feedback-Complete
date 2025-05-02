@@ -1,3 +1,4 @@
+"use client";
 
 import React from 'react';
 import { InvitationForm } from '@/components/admin/InvitationForm';
