@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ['@prisma/client', '@auth/prisma-adapter'],
-  webpack: (config: any) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
+  webpack: (conf) => {
+    conf.resolve.fallback = {
+      ...conf.resolve.fallback,
       fs: false,
       net: false,
       tls: false,
@@ -11,7 +11,7 @@ const nextConfig = {
       child_process: false,
       events: false,
     };
-    return config;
+    return conf;
   },
 };
 
