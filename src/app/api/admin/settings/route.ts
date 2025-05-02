@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   if (!(await isAdmin(request))) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
-
+  
   try {
     const settings = await prisma.setting.findMany();
     // Convert array of {key, value} to a single object {key1: value1, key2: value2}
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       acc[setting.key] = setting.value;
       return acc;
     }, {} as Record<string, any>);
-
+    
     return NextResponse.json(settingsObject, { status: 200 });
   } catch (error) {
     console.error("Error fetching settings:", error);
@@ -39,14 +39,14 @@ export async function PUT(request: Request) {
   if (!(await isAdmin(request))) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
-
+  
   try {
-    const body = await request.json();
-
+    const body = await request.json() as Record<string, any>;
+    
     if (typeof body !== 'object' || body === null) {
       return NextResponse.json({ error: 'Invalid request body. Expected an object of settings.' }, { status: 400 });
     }
-
+    
     const updatePromises = Object.entries(body).map(([key, value]) => {
       // Basic validation: ensure key is string and value is not undefined
       if (typeof key !== 'string' || value === undefined) {
@@ -61,22 +61,20 @@ export async function PUT(request: Request) {
         create: { key: key, value: value as any },
       });
     });
-
+    
     await Promise.all(updatePromises.filter(p => p !== null));
-
+    
     // Fetch the updated settings to return
     const updatedSettings = await prisma.setting.findMany();
     const settingsObject = updatedSettings.reduce((acc, setting) => {
       acc[setting.key] = setting.value;
       return acc;
     }, {} as Record<string, any>);
-
+    
     return NextResponse.json(settingsObject, { status: 200 });
-
   } catch (error) {
     console.error("Error updating settings:", error);
     // Check for specific Prisma errors if needed
     return NextResponse.json({ error: 'Failed to update settings.' }, { status: 500 });
   }
 }
-
