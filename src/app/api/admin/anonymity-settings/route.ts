@@ -52,7 +52,14 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json() as {
+      minGroupSize?: number;
+      minActiveUsers?: number;
+      activityThresholdDays?: number;
+      combinationLogic?: string;
+      enableGrouping?: boolean;
+      activityRequirements?: any;
+    };
 
     // Validate input (ensure types match the schema)
     const updateData: Partial<typeof body> = {};
@@ -100,4 +107,3 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Failed to update anonymity settings.' }, { status: 500 });
   }
 }
-
