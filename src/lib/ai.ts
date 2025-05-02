@@ -15,10 +15,10 @@ const openai = new OpenAI({
 
 const prisma = new PrismaClient(); // Instantiate Prisma client if needed here or pass it in
 
-export class AI {
-
+// Create the AI class implementation
+class AIImplementation {
   // --- NEW FUNCTION: Analyze a single feedback item --- 
-  static async analyzeSingleFeedback(feedbackContent: string): Promise<{
+  async analyzeSingleFeedback(feedbackContent: string): Promise<{
     analysisSummary: string | null;
     sentiment: string | null;
     topics: string[];
@@ -99,10 +99,8 @@ export class AI {
     }
   }
 
-  // --- Existing functions below (potentially refactor/remove unused ones later) ---
-
   // Process user message and generate AI response using OpenAI directly
-  static async processMessage(message: string, conversation: any[]): Promise<{
+  async processMessage(message: string, conversation: any[]): Promise<{
     response: string;
     anonymized?: string;
     metadata?: {
@@ -111,14 +109,14 @@ export class AI {
       isQuestion?: boolean;
     }
   }> {
-    // ... (keep existing implementation for chat functionality)
     try {
       console.log("Processing message with OpenAI:", message);
       
       const formattedMessages = conversation.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
-        content: msg.content
+        content: msg.content || msg.text // Handle both content or text property
       }));
+      
       formattedMessages.push({
         role: 'user',
         content: message
@@ -134,10 +132,9 @@ export class AI {
       const aiResponse = completion.choices[0]?.message?.content || "I'm sorry, I couldn't process your message.";
       console.log("OpenAI response:", aiResponse);
       
-      let category = await AI.categorizeMessage(message);
-      let priority = AI.calculatePriority(category, message);
+      const category = await this.categorizeMessage(message);
+      const priority = this.calculatePriority(category, message);
       let anonymized = null;
-      // ... (rest of the existing logic)
       
       return {
         response: aiResponse,
@@ -150,12 +147,12 @@ export class AI {
       };
     } catch (error) {
       console.error('Error calling OpenAI:', error);
-      return AI.localProcessMessage(message, conversation);
+      return this.localProcessMessage(message, conversation);
     }
   }
   
   // Local fallback for message processing
-  private static async localProcessMessage(message: string, conversation: any[]): Promise<{
+  private async localProcessMessage(message: string, conversation: any[]): Promise<{
     response: string;
     anonymized?: string;
     metadata?: {
@@ -164,10 +161,8 @@ export class AI {
       isQuestion?: boolean;
     }
   }> {
-    // ... (keep existing implementation)
     let category = "";
     let priority = 1;
-    // ... (rest of the existing logic)
     return {
       response: "Thank you for sharing that information. Is there anything else you'd like to add?",
       metadata: {
@@ -179,9 +174,8 @@ export class AI {
   }
   
   // Categorize message using OpenAI
-  private static async categorizeMessage(message: string): Promise<string> {
-    // ... (keep existing implementation)
-     try {
+  private async categorizeMessage(message: string): Promise<string> {
+    try {
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -207,8 +201,7 @@ export class AI {
   }
   
   // Calculate priority based on category and content
-  private static calculatePriority(category: string, message: string): number {
-    // ... (keep existing implementation)
+  private calculatePriority(category: string, message: string): number {
     if (category === "Workload" || message.toLowerCase().includes("urgent") || 
         message.toLowerCase().includes("critical") || message.toLowerCase().includes("immediately")) {
       return 3;
@@ -220,9 +213,8 @@ export class AI {
     return 1;
   }
   
-  // Anonymize user feedback using Eden AI (or OpenAI)
-  static async anonymizeFeedback(originalText: string): Promise<string> {
-    // ... (keep existing implementation)
+  // Anonymize user feedback using OpenAI
+  async anonymizeFeedback(originalText: string): Promise<string> {
     try {
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -242,18 +234,15 @@ export class AI {
       const anonymizedText = completion.choices[0]?.message?.content || "";
       if (anonymizedText) return anonymizedText;
       
-      // Fallback to Eden AI (if needed, though OpenAI should be sufficient)
-      // ... (Eden AI fallback logic)
-      return AI.localAnonymizeFeedback(originalText); // Fallback to local if all else fails
+      return this.localAnonymizeFeedback(originalText); // Fallback to local if all else fails
     } catch (error) {
       console.error('Error anonymizing feedback:', error);
-      return AI.localAnonymizeFeedback(originalText);
+      return this.localAnonymizeFeedback(originalText);
     }
   }
   
   // Local fallback for anonymization
-  private static localAnonymizeFeedback(originalText: string): string {
-    // ... (keep existing implementation)
+  private localAnonymizeFeedback(originalText: string): string {
     let anonymized = originalText
       .replace(/\bI am\b/gi, "The person is")
       .replace(/\bI'm\b/gi, "The person is")
@@ -269,20 +258,19 @@ export class AI {
     return anonymized;
   }
   
-  // Analyze feedback for trends and insights (Batch analysis - keep as is for now)
-  static async analyzeFeedback(feedbackItems: any[]): Promise<{
+  // Analyze feedback for trends and insights (Batch analysis)
+  async analyzeFeedback(feedbackItems: any[]): Promise<{
     topCategories: { name: string, count: number }[];
     sentimentByDepartment: { department: string, sentiment: number }[];
     urgentIssues: string[];
     recommendedActions: string[];
   }> {
-    // ... (keep existing implementation for potential future use)
-     try {
-      const feedbackText = feedbackItems.map(item => item.content).join("\n\n");
+    try {
+      const feedbackText = feedbackItems.map(item => item.content || item.text || "").join("\n\n");
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-           {
+          {
             role: "system",
             content: `You are an analytics assistant that analyzes workplace feedback. Analyze the following feedback and provide: 1. The top 5 categories of issues mentioned. 2. 3 urgent issues that need immediate attention. 3. 3 recommended actions to address the issues. Format your response as JSON with the following structure: {"topCategories": [{"name": "Category1", "count": 5}, ...], "urgentIssues": ["Issue 1", ...], "recommendedActions": ["Action 1", ...]}`
           },
@@ -297,7 +285,7 @@ export class AI {
       });
       const analysisText = completion.choices[0]?.message?.content || "{}";
       let analysis = JSON.parse(analysisText);
-      // ... (rest of existing logic)
+      
       return {
         topCategories: analysis.topCategories || [],
         sentimentByDepartment: [], // Mock data
@@ -306,14 +294,18 @@ export class AI {
       };
     } catch (error) {
       console.error('Error analyzing feedback:', error);
-      return { topCategories: [], sentimentByDepartment: [], urgentIssues: [], recommendedActions: [] }; // Return empty on error
+      return { 
+        topCategories: [], 
+        sentimentByDepartment: [], 
+        urgentIssues: [], 
+        recommendedActions: [] 
+      };
     }
   }
   
   // Generate follow-up questions based on feedback using OpenAI
-  static async generateFollowUpQuestions(feedback: string): Promise<string[]> {
-     // ... (keep existing implementation)
-     try {
+  async generateFollowUpQuestions(feedback: string): Promise<string[]> {
+    try {
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -340,4 +332,16 @@ export class AI {
   }
 }
 
+// Create singleton instance
+const aiInstance = new AIImplementation();
 
+// Default export (for chat/route.ts)
+export default aiInstance;
+
+// Named export for EdenAI (for analytics/route.ts)
+export const EdenAI = {
+  analyzeFeedback: aiInstance.analyzeFeedback.bind(aiInstance)
+};
+
+// Re-export the class (for backward compatibility)
+export const AI = AIImplementation;
