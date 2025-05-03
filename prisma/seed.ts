@@ -14,14 +14,9 @@ async function main() {
   for (const roleData of rolesToCreate) {
     const role = await prisma.role.upsert({
       where: { name: roleData.name },
-      update: {
-        // Optional: update description if needed
-        // description: roleData.description
-      },
+      update: {},
       create: {
         name: roleData.name,
-        // Uncomment if you add a description field to your Role model
-        // description: roleData.description
       },
     });
     console.log(`Created or found role with id: ${role.id} (${role.name})`);
