@@ -14,6 +14,23 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
+// Helper function to safely parse request body
+async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
+  const contentType = request.headers.get('content-type');
+  
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Invalid content type. Expected application/json');
+  }
+
+  const body = await request.json();
+
+  // Use Zod to parse and validate the body
+  return InvitationSchema.parse({
+    email: body?.email,
+    roleName: body?.roleName
+  });
+}
+
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
@@ -23,23 +40,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Explicitly type the body as any to handle unknown type
-    const body: any = await request.json();
-
-    // Validate input using Zod
-    const parsedInput = InvitationSchema.safeParse({
-      email: body.email,
-      roleName: body.roleName
-    });
-    
-    if (!parsedInput.success) {
+    // Parse and validate input
+    let validatedBody: InvitationBody;
+    try {
+      validatedBody = await parseRequestBody(request);
+    } catch (validationError) {
       return NextResponse.json({ 
         error: 'Invalid input',
-        details: parsedInput.error.errors 
+        details: validationError instanceof Error ? validationError.message : 'Validation failed'
       }, { status: 400 });
     }
 
-    const { email, roleName } = parsedInput.data;
+    const { email, roleName } = validatedBody;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
