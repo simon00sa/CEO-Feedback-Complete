@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse request body with type assertion
-    const body: InvitationBody = await request.json();
+    // Parse request body with type handling
+    const body = await request.json();
 
     // Validate input using Zod
     const parsedInput = InvitationSchema.safeParse(body);
