@@ -1,28 +1,37 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
+import { z } from 'zod';
+import { addHours } from 'date-fns';
 import { authOptions } from '@/lib/authOptions';
-import { addHours } from 'date-fns'; // Using date-fns for date manipulation
+import prisma from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+// Zod schema for invitation input validation
+const InvitationSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  roleName: z.string().min(1, 'Role name is required')
+});
 
 // POST /api/admin/invitations - Create a new invitation
-export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  // TODO: Implement proper role checking - only Admins should create invitations
-  // if (!session || session.user?.role !== 'Admin') {
-  //   return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  // }
-
+export async function POST(request: NextRequest) {
   try {
-    const { email, roleName } = await request.json() as {
-      email: string;
-      roleName: string;
-    };
-
-    if (!email || !roleName) {
-      return NextResponse.json({ error: 'Email and roleName are required' }, { status: 400 });
+    // Verify user authentication and admin role
+    const session = await getServerSession(authOptions);
+    if (!session || session.user?.role !== 'Admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
+
+    // Parse and validate request body
+    const body = await request.json();
+    const parsedInput = InvitationSchema.safeParse(body);
+    
+    if (!parsedInput.success) {
+      return NextResponse.json({ 
+        error: 'Invalid input',
+        details: parsedInput.error.errors 
+      }, { status: 400 });
+    }
+
+    const { email, roleName } = parsedInput.data;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
@@ -30,51 +39,70 @@ export async function POST(request: Request) {
     });
 
     if (!role) {
-      // Optionally create roles if they don't exist, or return error
-      // For now, assume roles 'Staff', 'Leadership', 'Admin' exist
-      return NextResponse.json({ error: `Role '${roleName}' not found` }, { status: 404 });
+      return NextResponse.json({ 
+        error: `Role '${roleName}' not found` 
+      }, { status: 404 });
     }
 
-    // Set expiration (e.g., 7 days from now)
+    // Set expiration (7 days from now)
     const expires = addHours(new Date(), 7 * 24);
 
-    // Create the invitation
-    const invitation = await prisma.invitation.create({
-      data: {
-        email,
-        roleId: role.id,
-        expires,
-        // Token is generated automatically by Prisma (@default(cuid()))
-      },
-    });
+    try {
+      // Create the invitation
+      const invitation = await prisma.invitation.create({
+        data: {
+          email,
+          roleId: role.id,
+          expires,
+        },
+        include: {
+          role: {
+            select: { name: true }
+          }
+        }
+      });
 
-    // TODO: Send email to the user with the invitation link
-    // The link should be something like: `${process.env.NEXTAUTH_URL}/auth/signup?token=${invitation.token}`
-    // Requires an email sending service (e.g., Nodemailer, SendGrid)
-    console.log(`Invitation created for ${email} with role ${roleName}, token: ${invitation.token}`);
+      // TODO: Implement email sending logic
+      console.log(`Invitation created for ${email} with role ${roleName}, token: ${invitation.token}`);
 
-    return NextResponse.json(invitation, { status: 201 });
+      return NextResponse.json(invitation, { status: 201 });
+    } catch (error: any) {
+      // Handle unique constraint violation
+      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+        return NextResponse.json({ 
+          error: 'An invitation for this email already exists.' 
+        }, { status: 409 });
+      }
+      throw error;
+    }
+
   } catch (error) {
     console.error("Error creating invitation:", error);
-    // Check for unique constraint violation (email already invited)
-    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-        return NextResponse.json({ error: 'An invitation for this email already exists.' }, { status: 409 });
-    }
-    return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to create invitation',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 
 // GET /api/admin/invitations - List all invitations
-export async function GET(request: Request) {
-  const session = await getServerSession(authOptions);
-  // Protect the endpoint: only Admins can list invitations
-  if (!session || session.user?.role !== 'Admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
+export async function GET(request: NextRequest) {
   try {
-    // Fetch all invitations, ordered by creation date, include role name
+    // Verify user authentication and admin role
+    const session = await getServerSession(authOptions);
+    if (!session || session.user?.role !== 'Admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Extract pagination parameters
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+
+    // Fetch paginated invitations
     const invitations = await prisma.invitation.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
       orderBy: {
         createdAt: 'desc',
       },
@@ -85,9 +113,24 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json(invitations, { status: 200 });
+    // Get total count for pagination
+    const total = await prisma.invitation.count();
+
+    return NextResponse.json({
+      invitations,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    }, { status: 200 });
+
   } catch (error) {
     console.error("Error fetching invitations:", error);
-    return NextResponse.json({ error: 'Failed to fetch invitations' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch invitations',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
