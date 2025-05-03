@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      // TODO: Implement email sending logic
+      // TODO: Send email to the user with the invitation link
       console.log(`Invitation created for ${email} with role ${roleName}, token: ${invitation.token}`);
 
       return NextResponse.json(invitation, { status: 201 });
