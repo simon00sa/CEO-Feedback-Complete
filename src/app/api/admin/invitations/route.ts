@@ -23,11 +23,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse request body with type handling
-    const body = await request.json();
+    // Explicitly type the body as any to handle unknown type
+    const body: any = await request.json();
 
     // Validate input using Zod
-    const parsedInput = InvitationSchema.safeParse(body);
+    const parsedInput = InvitationSchema.safeParse({
+      email: body.email,
+      roleName: body.roleName
+    });
     
     if (!parsedInput.success) {
       return NextResponse.json({ 
