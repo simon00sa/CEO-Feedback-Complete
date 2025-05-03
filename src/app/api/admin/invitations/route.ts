@@ -11,6 +11,9 @@ const InvitationSchema = z.object({
   roleName: z.string().min(1, 'Role name is required')
 });
 
+// Type for the request body
+type InvitationBody = z.infer<typeof InvitationSchema>;
+
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
@@ -20,8 +23,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse and validate request body
-    const body = await request.json();
+    // Parse request body with type assertion
+    const body: InvitationBody = await request.json();
+
+    // Validate input using Zod
     const parsedInput = InvitationSchema.safeParse(body);
     
     if (!parsedInput.success) {
