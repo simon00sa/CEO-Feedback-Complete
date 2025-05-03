@@ -1,40 +1,36 @@
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
-
-async function main() {
-  console.log(`Start seeding ...`);
-  
-  const rolesToCreate = [
-    { name: "Staff", description: "Regular team member" },
-    { name: "Leadership", description: "Management and leadership roles" },
-    { name: "Admin", description: "System administrators with full access" }
-  ];
-
-  for (const roleData of rolesToCreate) {
-    const role = await prisma.role.upsert({
-      where: { name: roleData.name },
-      update: {
-        // Optional: update description if needed
-        // description: roleData.description
-      },
-      create: {
-        name: roleData.name,
-        // Uncomment if you add a description field to your Role model
-        // description: roleData.description
-      },
-    });
-    console.log(`Created or found role with id: ${role.id} (${role.name})`);
-  }
-  
-  console.log(`Seeding finished.`);
+{
+  "name": "anonymous-feedback-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && prisma db seed && next build --no-lint",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "prisma:seed": "prisma db seed",
+    "build:worker": "opennextjs-cloudflare",
+    "preview": "opennextjs-cloudflare && wrangler dev",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv env.d.ts"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["prisma", "@prisma/client"]
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.9.0",
+    "@hookform/resolvers": "^3.10.0",
+    "@prisma/client": "^6.6.0",
+    "prisma": "^6.6.0",
+    "zod": "^3.24.1",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.0.0-rc.2+sha512.b6e59b96f90ca92449ac2f6dca9b430880448fc97d21f0fa9200e3d5ddb5289ad535255400554f7f3486e2d60058492161aaa9b58828e81f50c096718be9d156"
 }
-
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
