@@ -14,6 +14,16 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
+// Type guard to check if input is an object with required properties
+function isValidInvitationBody(body: unknown): body is InvitationBody {
+  return (
+    typeof body === 'object' && 
+    body !== null && 
+    typeof (body as any).email === 'string' && 
+    typeof (body as any).roleName === 'string'
+  );
+}
+
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse request body
+    // Validate content type
     const contentType = request.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       return NextResponse.json({ 
@@ -31,7 +41,7 @@ export async function POST(request: NextRequest) {
       }, { status: 415 });
     }
 
-    // Safe body parsing
+    // Parse request body
     let body: unknown;
     try {
       body = await request.json();
@@ -42,11 +52,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate input
-    const parseResult = InvitationSchema.safeParse({
-      email: typeof body === 'object' && body !== null ? (body as any).email : undefined,
-      roleName: typeof body === 'object' && body !== null ? (body as any).roleName : undefined
-    });
+    // Validate body structure
+    if (!isValidInvitationBody(body)) {
+      return NextResponse.json({ 
+        error: 'Invalid input',
+        details: 'Email and roleName are required and must be strings'
+      }, { status: 400 });
+    }
+
+    // Validate input with Zod
+    const parseResult = InvitationSchema.safeParse(body);
     
     if (!parseResult.success) {
       return NextResponse.json({ 
