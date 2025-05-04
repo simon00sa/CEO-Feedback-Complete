@@ -14,8 +14,8 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
-// Safely extract and validate request body
-async function extractInvitationBody(request: NextRequest): Promise<InvitationBody> {
+// Utility function to safely parse request body
+async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
   // Validate content type
   const contentType = request.headers.get('content-type');
   if (!contentType || !contentType.includes('application/json')) {
@@ -25,15 +25,18 @@ async function extractInvitationBody(request: NextRequest): Promise<InvitationBo
   // Parse JSON body
   const body = await request.json();
 
-  // Perform type and content validation
+  // Validate the body structure
   if (typeof body !== 'object' || body === null) {
     throw new Error('Request body must be a non-null object');
   }
 
-  // Use Zod to parse and validate the input
+  // Explicitly type the body
+  const typedBody = body as Record<string, unknown>;
+
+  // Validate using Zod
   return InvitationSchema.parse({
-    email: typeof body.email === 'string' ? body.email : '',
-    roleName: typeof body.roleName === 'string' ? body.roleName : ''
+    email: typeof typedBody.email === 'string' ? typedBody.email : '',
+    roleName: typeof typedBody.roleName === 'string' ? typedBody.roleName : ''
   });
 }
 
@@ -46,10 +49,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Extract and validate input
+    // Parse and validate input
     let email: string, roleName: string;
     try {
-      const validatedBody = await extractInvitationBody(request);
+      const validatedBody = await parseRequestBody(request);
       email = validatedBody.email;
       roleName = validatedBody.roleName;
     } catch (validationError) {
