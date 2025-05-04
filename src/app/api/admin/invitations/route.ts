@@ -14,23 +14,6 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
-// Utility function to safely parse request body
-async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
-  const contentType = request.headers.get('content-type');
-  
-  if (!contentType || !contentType.includes('application/json')) {
-    throw new Error('Invalid content type. Expected application/json');
-  }
-
-  const body = await request.json();
-
-  // Validate the body
-  return InvitationSchema.parse({
-    email: body?.email ?? '',
-    roleName: body?.roleName ?? ''
-  });
-}
-
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
@@ -40,18 +23,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse and validate input
-    let email: string, roleName: string;
-    try {
-      const validatedBody = await parseRequestBody(request);
-      email = validatedBody.email;
-      roleName = validatedBody.roleName;
-    } catch (validationError) {
+    // Parse request body
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
       return NextResponse.json({ 
-        error: 'Invalid input',
-        details: validationError instanceof Error ? validationError.message : 'Validation failed'
+        error: 'Invalid content type. Expected application/json' 
+      }, { status: 415 });
+    }
+
+    // Safe body parsing
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return NextResponse.json({ 
+        error: 'Invalid JSON',
+        details: error instanceof Error ? error.message : 'Unable to parse request body'
       }, { status: 400 });
     }
+
+    // Validate input
+    const parseResult = InvitationSchema.safeParse({
+      email: typeof body === 'object' && body !== null ? (body as any).email : undefined,
+      roleName: typeof body === 'object' && body !== null ? (body as any).roleName : undefined
+    });
+    
+    if (!parseResult.success) {
+      return NextResponse.json({ 
+        error: 'Invalid input',
+        details: parseResult.error.errors 
+      }, { status: 400 });
+    }
+
+    const { email, roleName } = parseResult.data;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
