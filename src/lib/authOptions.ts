@@ -1,12 +1,22 @@
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { PrismaClient } from "@prisma/client"
-import EmailProvider from "next-auth/providers/email"
-import { AdapterUser } from "next-auth/adapters"
+import { NextAuthOptions } from "next-auth";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import EmailProvider from "next-auth/providers/email";
+import { AdapterUser } from "next-auth/adapters";
+import prisma from "@/lib/prisma";
 
-const prisma = new PrismaClient()
+// Extend the default session types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role?: string | null;
+      email?: string | null;
+      name?: string | null;
+    }
+  }
+}
 
-// Export the auth configuration for use in other files
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     EmailProvider({
@@ -39,11 +49,10 @@ export const authOptions = {
     verifyRequest: '/auth/verify-request',
   },
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
+    async signIn({ user, email }) {
       if (email?.verificationRequest) return true;
       const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
-      if (existingUser) return true;
-      return true;
+      return !!existingUser;
     },
     async session({ session, user }) {
       if (session.user) {
