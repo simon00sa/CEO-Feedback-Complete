@@ -14,14 +14,22 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
-// Type guard to check if input is an object with required properties
-function isValidInvitationBody(body: unknown): body is InvitationBody {
-  return (
-    typeof body === 'object' && 
-    body !== null && 
-    typeof (body as any).email === 'string' && 
-    typeof (body as any).roleName === 'string'
-  );
+// Utility function to safely parse request body
+async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
+  // Validate content type
+  const contentType = request.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Invalid content type. Expected application/json');
+  }
+
+  // Parse JSON body
+  const body = await request.json();
+
+  // Validate body structure and content
+  return InvitationSchema.parse({
+    email: body && typeof body === 'object' && 'email' in body ? body.email : '',
+    roleName: body && typeof body === 'object' && 'roleName' in body ? body.roleName : ''
+  });
 }
 
 // POST /api/admin/invitations - Create a new invitation
@@ -33,44 +41,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Validate content type
-    const contentType = request.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      return NextResponse.json({ 
-        error: 'Invalid content type. Expected application/json' 
-      }, { status: 415 });
-    }
-
-    // Parse request body
-    let body: unknown;
+    // Parse and validate input
+    let email: string, roleName: string;
     try {
-      body = await request.json();
-    } catch (error) {
-      return NextResponse.json({ 
-        error: 'Invalid JSON',
-        details: error instanceof Error ? error.message : 'Unable to parse request body'
-      }, { status: 400 });
-    }
-
-    // Validate body structure
-    if (!isValidInvitationBody(body)) {
+      const validatedBody = await parseRequestBody(request);
+      email = validatedBody.email;
+      roleName = validatedBody.roleName;
+    } catch (validationError) {
       return NextResponse.json({ 
         error: 'Invalid input',
-        details: 'Email and roleName are required and must be strings'
+        details: validationError instanceof Error ? validationError.message : 'Validation failed'
       }, { status: 400 });
     }
-
-    // Validate input with Zod
-    const parseResult = InvitationSchema.safeParse(body);
-    
-    if (!parseResult.success) {
-      return NextResponse.json({ 
-        error: 'Invalid input',
-        details: parseResult.error.errors 
-      }, { status: 400 });
-    }
-
-    const { email, roleName } = parseResult.data;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
