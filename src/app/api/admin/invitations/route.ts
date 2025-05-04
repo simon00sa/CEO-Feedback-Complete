@@ -14,6 +14,29 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
+// Utility function to safely parse request body
+async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
+  try {
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid content type. Expected application/json');
+    }
+
+    const body = await request.json();
+    
+    // Validate and parse the body
+    return InvitationSchema.parse({
+      email: body && typeof body === 'object' ? body.email : undefined,
+      roleName: body && typeof body === 'object' ? body.roleName : undefined
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(error.errors.map(e => e.message).join(', '));
+    }
+    throw error;
+  }
+}
+
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
@@ -23,28 +46,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse request body with strict type checking
-    let body: unknown;
+    // Parse and validate input
+    let validatedBody: InvitationBody;
     try {
-      body = await request.json();
-    } catch (error) {
-      return NextResponse.json({ 
-        error: 'Invalid JSON',
-        details: error instanceof Error ? error.message : 'Unable to parse request body'
-      }, { status: 400 });
-    }
-
-    // Validate input using Zod
-    const parseResult = InvitationSchema.safeParse(body);
-    
-    if (!parseResult.success) {
+      validatedBody = await parseRequestBody(request);
+    } catch (validationError) {
       return NextResponse.json({ 
         error: 'Invalid input',
-        details: parseResult.error.errors 
+        details: validationError instanceof Error ? validationError.message : 'Validation failed'
       }, { status: 400 });
     }
 
-    const { email, roleName } = parseResult.data;
+    const { email, roleName } = validatedBody;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
