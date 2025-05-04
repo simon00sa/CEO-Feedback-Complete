@@ -31,13 +31,10 @@ async function extractInvitationBody(request: NextRequest): Promise<InvitationBo
   }
 
   // Explicitly type and validate
+  const processedBody: Record<string, unknown> = body;
   return InvitationSchema.parse({
-    email: body && typeof body === 'object' && 'email' in body 
-      ? String(body.email) 
-      : '',
-    roleName: body && typeof body === 'object' && 'roleName' in body 
-      ? String(body.roleName) 
-      : ''
+    email: typeof processedBody.email === 'string' ? processedBody.email : '',
+    roleName: typeof processedBody.roleName === 'string' ? processedBody.roleName : ''
   });
 }
 
@@ -60,13 +57,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Invalid input',
         details: validationError instanceof Error ? validationError.message : 'Validation failed'
-      }, { status: 400 });
-    }
-
-    // Validate input
-    if (!email || !roleName) {
-      return NextResponse.json({ 
-        error: 'Email and roleName are required' 
       }, { status: 400 });
     }
 
