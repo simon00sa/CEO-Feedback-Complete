@@ -16,25 +16,19 @@ type InvitationBody = z.infer<typeof InvitationSchema>;
 
 // Utility function to safely parse request body
 async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
-  try {
-    const contentType = request.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Invalid content type. Expected application/json');
-    }
-
-    const body = await request.json();
-    
-    // Validate and parse the body
-    return InvitationSchema.parse({
-      email: body && typeof body === 'object' ? body.email : undefined,
-      roleName: body && typeof body === 'object' ? body.roleName : undefined
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(error.errors.map(e => e.message).join(', '));
-    }
-    throw error;
+  const contentType = request.headers.get('content-type');
+  
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Invalid content type. Expected application/json');
   }
+
+  const body = await request.json();
+
+  // Validate the body
+  return InvitationSchema.parse({
+    email: body?.email ?? '',
+    roleName: body?.roleName ?? ''
+  });
 }
 
 // POST /api/admin/invitations - Create a new invitation
@@ -47,17 +41,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate input
-    let validatedBody: InvitationBody;
+    let email: string, roleName: string;
     try {
-      validatedBody = await parseRequestBody(request);
+      const validatedBody = await parseRequestBody(request);
+      email = validatedBody.email;
+      roleName = validatedBody.roleName;
     } catch (validationError) {
       return NextResponse.json({ 
         error: 'Invalid input',
         details: validationError instanceof Error ? validationError.message : 'Validation failed'
       }, { status: 400 });
     }
-
-    const { email, roleName } = validatedBody;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
