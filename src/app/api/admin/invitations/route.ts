@@ -14,8 +14,8 @@ const InvitationSchema = z.object({
 // Type for the request body
 type InvitationBody = z.infer<typeof InvitationSchema>;
 
-// Utility function to safely parse request body
-async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
+// Safely extract and validate request body
+async function extractInvitationBody(request: NextRequest): Promise<InvitationBody> {
   // Validate content type
   const contentType = request.headers.get('content-type');
   if (!contentType || !contentType.includes('application/json')) {
@@ -25,18 +25,19 @@ async function parseRequestBody(request: NextRequest): Promise<InvitationBody> {
   // Parse JSON body
   const body = await request.json();
 
-  // Validate the body structure
+  // Validate input structure
   if (typeof body !== 'object' || body === null) {
     throw new Error('Request body must be a non-null object');
   }
 
-  // Explicitly type the body
-  const typedBody = body as Record<string, unknown>;
-
-  // Validate using Zod
+  // Explicitly type and validate
   return InvitationSchema.parse({
-    email: typeof typedBody.email === 'string' ? typedBody.email : '',
-    roleName: typeof typedBody.roleName === 'string' ? typedBody.roleName : ''
+    email: body && typeof body === 'object' && 'email' in body 
+      ? String(body.email) 
+      : '',
+    roleName: body && typeof body === 'object' && 'roleName' in body 
+      ? String(body.roleName) 
+      : ''
   });
 }
 
@@ -49,16 +50,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse and validate input
+    // Extract and validate input
     let email: string, roleName: string;
     try {
-      const validatedBody = await parseRequestBody(request);
+      const validatedBody = await extractInvitationBody(request);
       email = validatedBody.email;
       roleName = validatedBody.roleName;
     } catch (validationError) {
       return NextResponse.json({ 
         error: 'Invalid input',
         details: validationError instanceof Error ? validationError.message : 'Validation failed'
+      }, { status: 400 });
+    }
+
+    // Validate input
+    if (!email || !roleName) {
+      return NextResponse.json({ 
+        error: 'Email and roleName are required' 
       }, { status: 400 });
     }
 
