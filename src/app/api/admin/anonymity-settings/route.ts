@@ -8,7 +8,16 @@ const prisma = new PrismaClient();
 // Helper to check for Admin role
 async function isAdmin(request: Request): Promise<boolean> {
   const session = await getServerSession(authOptions);
-  return !!session?.user?.role && session.user.role.toUpperCase() === 'ADMIN';
+  if (!session?.user) {
+    return false;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { role: true }
+  });
+
+  return !!user && user.role.name.toUpperCase() === 'ADMIN';
 }
 
 // GET /api/admin/anonymity-settings - Fetch the global anonymity settings
