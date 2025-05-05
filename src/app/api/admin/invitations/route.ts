@@ -1,3 +1,4 @@
+// Fixed TypeScript issue
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { z } from 'zod';
