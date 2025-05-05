@@ -11,48 +11,33 @@ const InvitationSchema = z.object({
   roleName: z.string().min(1, 'Role name is required')
 });
 
-// Safely extract and validate request body
-async function extractInvitationBody(request: NextRequest) {
-  const contentType = request.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    throw new Error('Invalid content type. Expected application/json');
+// Helper to check for Admin role
+async function isAdmin(request: NextRequest): Promise<boolean> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return false;
   }
 
-  const body = await request.json();
-  return InvitationSchema.parse(body);
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { role: true }
+  });
+
+  return !!user && user.role.name.toUpperCase() === 'ADMIN';
 }
 
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
     // Verify user authentication and admin role
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!(await isAdmin(request))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Check for admin role
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    });
-
-    if (!user || user.role.name !== 'Admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    // Extract and validate input
-    let email: string, roleName: string;
-    try {
-      const validatedBody = await extractInvitationBody(request);
-      email = validatedBody.email;
-      roleName = validatedBody.roleName;
-    } catch (validationError) {
-      return NextResponse.json({ 
-        error: 'Invalid input',
-        details: validationError instanceof Error ? validationError.message : 'Validation failed'
-      }, { status: 400 });
-    }
+    // Parse and validate request body
+    const body = await request.json();
+    const validatedData = InvitationSchema.parse(body);
+    const { email, roleName } = validatedData;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
@@ -99,6 +84,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error("Error creating invitation:", error);
+    
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ 
+        error: 'Invalid input',
+        details: error.errors 
+      }, { status: 400 });
+    }
+    
     return NextResponse.json({ 
       error: 'Failed to create invitation',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -110,18 +104,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Verify user authentication and admin role
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    // Check for admin role
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
-    });
-
-    if (!user || user.role.name !== 'Admin') {
+    if (!(await isAdmin(request))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -139,7 +122,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         role: {
-          select: { name: true }, // Include the role name
+          select: { name: true },
         },
       },
     });
