@@ -43,7 +43,17 @@ export async function POST(request: NextRequest) {
   try {
     // Verify user authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'Admin') {
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Check for admin role
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { role: true }
+    });
+
+    if (!user || user.role.name !== 'Admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -117,7 +127,17 @@ export async function GET(request: NextRequest) {
   try {
     // Verify user authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'Admin') {
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // Check for admin role
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { role: true }
+    });
+
+    if (!user || user.role.name !== 'Admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
