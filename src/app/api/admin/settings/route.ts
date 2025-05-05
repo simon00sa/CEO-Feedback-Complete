@@ -8,9 +8,16 @@ const prisma = new PrismaClient();
 // Helper to check for Admin role
 async function isAdmin(request: Request): Promise<boolean> {
   const session = await getServerSession(authOptions);
-  // Ensure user is logged in and has the 'Admin' role
-  // Note: Role name comparison should be case-insensitive or standardized
-  return !!session?.user?.role && session.user.role.toUpperCase() === 'ADMIN';
+  if (!session?.user) {
+    return false;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { role: true }
+  });
+
+  return !!user && user.role.name.toUpperCase() === 'ADMIN';
 }
 
 // GET /api/admin/settings - Fetch all application settings
