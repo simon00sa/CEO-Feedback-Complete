@@ -22,7 +22,7 @@ async function isAdmin(): Promise<boolean> {
 }
 
 // GET /api/admin/anonymity-settings - Fetch the global anonymity settings
-export async function GET(request: Request) {
+export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
