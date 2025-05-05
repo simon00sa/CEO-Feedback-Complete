@@ -68,6 +68,7 @@ model User {
   sessions      Session[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  invitations   Invitation[]
 }
 
 // Role model (as defined previously)
@@ -89,6 +90,10 @@ model Invitation {
   used      Boolean  @default(false) // Whether the invitation has been used
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  inviterId String
+  inviter   User     @relation(fields: [inviterId], references: [id])
+  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  orgId     String   // Organization ID
 }
 
 // Enhanced Team model (incorporating feedback)
@@ -147,13 +152,17 @@ model Setting {
 
 // AnonymitySettings model (incorporating feedback)
 model AnonymitySettings {
-  id                    String   @id @default(cuid()) // Use a single record for global settings
-  minGroupSize          Int      @default(8) // Minimum people for separate reporting
-  minActiveUsers        Int      @default(5) // Minimum ACTIVE users needed
-  activityThresholdDays Int      @default(30) // Days to consider a user "active"
-  combinationLogic      String   @default("DEPARTMENT") // How to combine small teams (e.g., DEPARTMENT, HIERARCHY, RANDOM)
-  enableGrouping        Boolean  @default(true)
-  activityRequirements  Json?    // What constitutes "activity" (e.g., { login: true, feedbackSubmission: true })
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                        String   @id @default(cuid()) // Use a single record for global settings
+  minGroupSize              Int      @default(8) // Minimum people for separate reporting
+  minActiveUsers            Int      @default(5) // Minimum ACTIVE users needed
+  activityThresholdDays     Int      @default(30) // Days to consider a user "active"
+  combinationLogic          String   @default("DEPARTMENT") // How to combine small teams (e.g., DEPARTMENT, HIERARCHY, RANDOM)
+  enableGrouping            Boolean  @default(true)
+  activityRequirements      Json?    // What constitutes "activity" (e.g., { login: true, feedbackSubmission: true })
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  enableAnonymousComments   Boolean  @default(true)
+  enableAnonymousVotes      Boolean  @default(true)
+  enableAnonymousAnalytics  Boolean  @default(false)
+  anonymityLevel            String   @default("MEDIUM") // LOW, MEDIUM, HIGH
 }
