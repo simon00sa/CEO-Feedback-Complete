@@ -1,4 +1,3 @@
-// Fixed TypeScript issue
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { z } from 'zod';
@@ -6,51 +5,41 @@ import { addHours } from 'date-fns';
 import { authOptions } from '@/lib/authOptions';
 import prisma from '@/lib/prisma';
 
-// Define the request body type
-type RequestBody = {
-  email: string;
-  roleName: string;
-};
+// Zod schema for invitation input validation
+const InvitationSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  roleName: z.string().min(1, 'Role name is required')
+});
 
-// Helper to check for Admin role
-async function isAdmin(request: NextRequest): Promise<boolean> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return false;
-  }
+// Type for the request body
+type InvitationBody = z.infer<typeof InvitationSchema>;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { role: true }
-  });
-
-  return !!user && user.role.name.toUpperCase() === 'ADMIN';
-}
-
+// POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
+    // Verify user authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session || session.user?.role !== 'Admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Parse request body with explicit typing
-    const body = await request.json() as RequestBody;
-    const { email, roleName } = body;
-
-    if (!email || !roleName) {
-      return NextResponse.json({ error: 'Email and roleName are required' }, { status: 400 });
-    }
-
-    // Check for admin role
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true }
+    // Parse request body with explicit type handling
+    const body = await request.json();
+    
+    // Validate input using Zod
+    const parsedInput = InvitationSchema.safeParse({
+      email: body?.email,
+      roleName: body?.roleName
     });
-
-    if (!user || user.role.name !== 'Admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    
+    if (!parsedInput.success) {
+      return NextResponse.json({ 
+        error: 'Invalid input',
+        details: parsedInput.error.errors 
+      }, { status: 400 });
     }
+
+    const { email, roleName } = parsedInput.data;
 
     // Find the role by name
     const role = await prisma.role.findUnique({
@@ -81,6 +70,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      // TODO: Send email to the user with the invitation link
       console.log(`Invitation created for ${email} with role ${roleName}, token: ${invitation.token}`);
 
       return NextResponse.json(invitation, { status: 201 });
@@ -103,10 +93,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// GET /api/admin/invitations - List all invitations
 export async function GET(request: NextRequest) {
   try {
     // Verify user authentication and admin role
-    if (!(await isAdmin(request))) {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user?.role !== 'Admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -124,7 +116,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         role: {
-          select: { name: true },
+          select: { name: true }, // Include the role name
         },
       },
     });
