@@ -17,7 +17,8 @@ async function isAdmin(): Promise<boolean> {
     include: { role: true }
   });
 
-  return !!user && user.role.name.toUpperCase() === 'ADMIN';
+  // Check if user exists and has a role before accessing role.name
+  return !!user && !!user.role && user.role.name.toUpperCase() === 'ADMIN';
 }
 
 // GET /api/admin/anonymity-settings - Fetch the global anonymity settings
