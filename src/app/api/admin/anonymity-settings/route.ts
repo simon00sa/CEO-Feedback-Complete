@@ -1,119 +1,89 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from '@/lib/authOptions';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth-options';
+import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
 
-const prisma = new PrismaClient();
+// Schema for validation
+const AnonymitySettingsSchema = z.object({
+  enableAnonymousComments: z.boolean(),
+  enableAnonymousVotes: z.boolean(),
+  enableAnonymousAnalytics: z.boolean(),
+  anonymityLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+});
 
-// Helper to check for Admin role
-async function isAdmin(): Promise<boolean> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return false;
-  }
+type AnonymitySettingsBody = z.infer<typeof AnonymitySettingsSchema>;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { role: true }
-  });
-
-  // Check if user exists and has a role before accessing role.name
-  return !!user && !!user.role && user.role.name.toUpperCase() === 'ADMIN';
+// Helper function to check if user is admin
+async function isAdmin(session: any) {
+  return session?.user?.role === 'ADMIN';
 }
 
-// GET /api/admin/anonymity-settings - Fetch the global anonymity settings
+// GET /api/admin/anonymity-settings
 export async function GET() {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
-  }
-
   try {
-    // There should ideally be only one record for global settings
-    // We can enforce this by always fetching/updating the first record or using a fixed ID
-    let settings = await prisma.anonymitySettings.findFirst();
-
-    // If no settings exist yet, create the default one
-    if (!settings) {
-      console.log("No anonymity settings found, creating default settings.");
-      settings = await prisma.anonymitySettings.create({
-        data: {
-          // Default values are set in the schema, but we can specify them here too
-          minGroupSize: 8,
-          minActiveUsers: 5,
-          activityThresholdDays: 30,
-          combinationLogic: "DEPARTMENT",
-          enableGrouping: true,
-          // activityRequirements: { login: true, feedbackSubmission: true } // Example JSON value
-        }
-      });
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user || !(await isAdmin(session))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json(settings, { status: 200 });
+    const settings = await prisma.anonymitySettings.findFirst();
+    
+    if (!settings) {
+      // Create default settings if none exist
+      const defaultSettings = await prisma.anonymitySettings.create({
+        data: {
+          enableAnonymousComments: true,
+          enableAnonymousVotes: true,
+          enableAnonymousAnalytics: false,
+          anonymityLevel: 'MEDIUM',
+        },
+      });
+      return NextResponse.json(defaultSettings);
+    }
+
+    return NextResponse.json(settings);
   } catch (error) {
-    console.error("Error fetching anonymity settings:", error);
-    return NextResponse.json({ error: 'Failed to fetch anonymity settings.' }, { status: 500 });
+    console.error('Error fetching anonymity settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch anonymity settings' }, 
+      { status: 500 }
+    );
   }
 }
 
-// PUT /api/admin/anonymity-settings - Update the global anonymity settings
+// PUT /api/admin/anonymity-settings
 export async function PUT(request: Request) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
-  }
-
   try {
-    const body = await request.json() as {
-      minGroupSize?: number;
-      minActiveUsers?: number;
-      activityThresholdDays?: number;
-      combinationLogic?: string;
-      enableGrouping?: boolean;
-      activityRequirements?: any;
-    };
-
-    // Validate input (ensure types match the schema)
-    const updateData: Partial<typeof body> = {};
-    if (body.minGroupSize !== undefined && typeof body.minGroupSize === 'number' && body.minGroupSize > 0) {
-      updateData.minGroupSize = body.minGroupSize;
-    }
-    if (body.minActiveUsers !== undefined && typeof body.minActiveUsers === 'number' && body.minActiveUsers > 0) {
-      updateData.minActiveUsers = body.minActiveUsers;
-    }
-    if (body.activityThresholdDays !== undefined && typeof body.activityThresholdDays === 'number' && body.activityThresholdDays > 0) {
-      updateData.activityThresholdDays = body.activityThresholdDays;
-    }
-    if (body.combinationLogic !== undefined && typeof body.combinationLogic === 'string') {
-      updateData.combinationLogic = body.combinationLogic;
-    }
-    if (body.enableGrouping !== undefined && typeof body.enableGrouping === 'boolean') {
-      updateData.enableGrouping = body.enableGrouping;
-    }
-    if (body.activityRequirements !== undefined && typeof body.activityRequirements === 'object') { // Basic check for JSON
-      updateData.activityRequirements = body.activityRequirements;
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user || !(await isAdmin(session))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'No valid fields provided for update.' }, { status: 400 });
-    }
+    const body = await request.json();
+    const validatedData = AnonymitySettingsSchema.parse(body);
 
-    // Find the existing settings record (should be only one)
-    const existingSettings = await prisma.anonymitySettings.findFirst();
-
-    if (!existingSettings) {
-      // Should not happen if GET is called first, but handle defensively
-      return NextResponse.json({ error: 'Anonymity settings not found. Cannot update.' }, { status: 404 });
-    }
-
-    // Update the settings
-    const updatedSettings = await prisma.anonymitySettings.update({
-      where: { id: existingSettings.id },
-      data: updateData,
+    const settings = await prisma.anonymitySettings.upsert({
+      where: { id: 1 },
+      update: validatedData,
+      create: validatedData,
     });
 
-    return NextResponse.json(updatedSettings, { status: 200 });
-
+    return NextResponse.json(settings);
   } catch (error) {
-    console.error("Error updating anonymity settings:", error);
-    return NextResponse.json({ error: 'Failed to update anonymity settings.' }, { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors }, 
+        { status: 400 }
+      );
+    }
+    
+    console.error('Error updating anonymity settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to update anonymity settings' }, 
+      { status: 500 }
+    );
   }
 }
