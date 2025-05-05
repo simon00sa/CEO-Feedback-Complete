@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/authOptions';
 const prisma = new PrismaClient();
 
 // Helper to check for Admin role
-async function isAdmin(request: Request): Promise<boolean> {
+async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return false;
@@ -22,7 +22,7 @@ async function isAdmin(request: Request): Promise<boolean> {
 
 // GET /api/admin/anonymity-settings - Fetch the global anonymity settings
 export async function GET(request: Request) {
-  if (!(await isAdmin(request))) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
 
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
 // PUT /api/admin/anonymity-settings - Update the global anonymity settings
 export async function PUT(request: Request) {
-  if (!(await isAdmin(request))) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
 
