@@ -1,31 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import AI from '@/lib/ai';  // Updated import to use the new AI class
-import { createFeedback, updateFeedbackStatus } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
-import { v4 as uuidv4 } from 'uuid';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from '@/lib/authOptions';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversation } = await request.json();
+    const session = await getServerSession(authOptions);
     
-    // Get current user (in a real implementation, this would be from the session)
-    const user = await getCurrentUser();
-    if (!user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    // Get user with role information
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { role: true, team: true }
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const { message, conversation } = await request.json();
     
-    // Process message with OpenAI (via our AI class)
-    const aiResult = await AI.processMessage(message, conversation);
+    // Process message with AI (Note: You may need to implement AI functionality)
+    // For now, let's create a basic response
+    const aiResult = {
+      response: `Thank you for your feedback: "${message}"`,
+      metadata: {
+        category: 'General',
+        priority: 1
+      }
+    };
     
-    // Generate a timestamp for the message
+    // Generate timestamps
     const timestamp = new Date().toISOString();
     
     // Create user message
     const userMessage = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       text: message,
       sender: 'user',
       timestamp
@@ -33,45 +52,43 @@ export async function POST(request: NextRequest) {
     
     // Create AI response
     const aiMessage = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       text: aiResult.response,
       sender: 'ai',
-      timestamp: new Date(Date.parse(timestamp) + 1000).toISOString(),
+      timestamp: new Date(Date.now() + 1000).toISOString(),
       metadata: aiResult.metadata
     };
     
     // Check if this is the final message in the conversation
     let systemMessage = null;
-    if (conversation.length >= 6) {
-      // Anonymize the feedback
-      const originalText = message;
-      const anonymizedText = await AI.anonymizeFeedback(originalText);
+    if (conversation?.length >= 6) {
+      // For now, let's skip anonymization and just store the feedback
+      const anonymizedText = message; // TODO: Implement actual anonymization
       
-      // Create system message with anonymized feedback
+      // Create system message
       systemMessage = {
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         text: anonymizedText,
         sender: 'system',
-        timestamp: new Date(Date.parse(timestamp) + 2000).toISOString(),
+        timestamp: new Date(Date.now() + 2000).toISOString(),
         metadata: {
           category: aiResult.metadata?.category,
           priority: aiResult.metadata?.priority,
-          department: user.department,
+          department: user.team?.name,
           status: 'new'
         }
       };
       
       // Create feedback record in database
-      const newConversation = [...conversation, userMessage, aiMessage, systemMessage];
-      await createFeedback({
-        originalText,
-        anonymizedText,
-        category: aiResult.metadata?.category || 'Other',
-        priority: aiResult.metadata?.priority || 1,
-        department: user.department,
-        status: 'new',
-        conversation: newConversation,
-        userId: user.id
+      await prisma.feedback.create({
+        data: {
+          content: anonymizedText,
+          submittedFromIP: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '',
+          userAgent: request.headers.get('user-agent') || '',
+          status: 'PENDING',
+          // Add conversation data as JSON if needed
+          // processingLog: { conversation: [...conversation, userMessage, aiMessage, systemMessage] }
+        }
       });
     }
     
@@ -89,4 +106,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
