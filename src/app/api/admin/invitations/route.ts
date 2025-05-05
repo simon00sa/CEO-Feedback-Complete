@@ -1,144 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from "next-auth/next";
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth-options';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { addHours } from 'date-fns';
-import { authOptions } from '@/lib/authOptions';
-import prisma from '@/lib/prisma';
 
-// Zod schema for invitation input validation
+// Schema for invitation validation
 const InvitationSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  roleName: z.string().min(1, 'Role name is required')
+  email: z.string().email(),
+  role: z.enum(['ADMIN', 'LEADERSHIP', 'STAFF']),
+  orgId: z.string().uuid(),
 });
-
-// Type for the request body
-type InvitationBody = z.infer<typeof InvitationSchema>;
 
 // POST /api/admin/invitations - Create a new invitation
 export async function POST(request: NextRequest) {
   try {
-    // Verify user authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'Admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    
+    if (!session?.user?.role === 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse request body with explicit type handling
     const body = await request.json();
-    
-    // Validate input using Zod
-    const parsedInput = InvitationSchema.safeParse({
-      email: body?.email,
-      roleName: body?.roleName
-    });
-    
-    if (!parsedInput.success) {
-      return NextResponse.json({ 
-        error: 'Invalid input',
-        details: parsedInput.error.errors 
-      }, { status: 400 });
-    }
+    const validatedData = InvitationSchema.parse(body);
 
-    const { email, roleName } = parsedInput.data;
-
-    // Find the role by name
-    const role = await prisma.role.findUnique({
-      where: { name: roleName },
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: validatedData.email },
     });
 
-    if (!role) {
-      return NextResponse.json({ 
-        error: `Role '${roleName}' not found` 
-      }, { status: 404 });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User with this email already exists' }, 
+        { status: 400 }
+      );
     }
 
-    // Set expiration (7 days from now)
-    const expires = addHours(new Date(), 7 * 24);
+    // Create invitation
+    const invitation = await prisma.invitation.create({
+      data: {
+        email: validatedData.email,
+        role: validatedData.role,
+        orgId: validatedData.orgId,
+        inviterId: session.user.id,
+        status: 'PENDING',
+      },
+    });
 
-    try {
-      // Create the invitation
-      const invitation = await prisma.invitation.create({
-        data: {
-          email,
-          roleId: role.id,
-          expires,
-        },
-        include: {
-          role: {
-            select: { name: true }
-          }
-        }
-      });
+    // TODO: Send invitation email here
 
-      // TODO: Send email to the user with the invitation link
-      console.log(`Invitation created for ${email} with role ${roleName}, token: ${invitation.token}`);
-
-      return NextResponse.json(invitation, { status: 201 });
-    } catch (error: any) {
-      // Handle unique constraint violation
-      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-        return NextResponse.json({ 
-          error: 'An invitation for this email already exists.' 
-        }, { status: 409 });
-      }
-      throw error;
-    }
-
+    return NextResponse.json(invitation, { status: 201 });
   } catch (error) {
-    console.error("Error creating invitation:", error);
-    return NextResponse.json({ 
-      error: 'Failed to create invitation',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors }, 
+        { status: 400 }
+      );
+    }
+    
+    console.error('Error creating invitation:', error);
+    return NextResponse.json(
+      { error: 'Failed to create invitation' }, 
+      { status: 500 }
+    );
   }
 }
 
 // GET /api/admin/invitations - List all invitations
 export async function GET(request: NextRequest) {
   try {
-    // Verify user authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'Admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    
+    if (!session?.user?.role === 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Extract pagination parameters
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-
-    // Fetch paginated invitations
     const invitations = await prisma.invitation.findMany({
-      skip: (page - 1) * limit,
-      take: limit,
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
-      include: {
-        role: {
-          select: { name: true }, // Include the role name
-        },
-      },
     });
 
-    // Get total count for pagination
-    const total = await prisma.invitation.count();
-
-    return NextResponse.json({
-      invitations,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit)
-      }
-    }, { status: 200 });
-
+    return NextResponse.json(invitations);
   } catch (error) {
-    console.error("Error fetching invitations:", error);
-    return NextResponse.json({ 
-      error: 'Failed to fetch invitations',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error('Error fetching invitations:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch invitations' }, 
+      { status: 500 }
+    );
   }
 }
