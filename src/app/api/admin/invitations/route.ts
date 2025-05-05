@@ -11,31 +11,15 @@ const InvitationSchema = z.object({
   roleName: z.string().min(1, 'Role name is required')
 });
 
-// Type for the request body
-type InvitationBody = z.infer<typeof InvitationSchema>;
-
 // Safely extract and validate request body
-async function extractInvitationBody(request: NextRequest): Promise<InvitationBody> {
-  // Validate content type
+async function extractInvitationBody(request: NextRequest) {
   const contentType = request.headers.get('content-type');
   if (!contentType || !contentType.includes('application/json')) {
     throw new Error('Invalid content type. Expected application/json');
   }
 
-  // Parse JSON body
   const body = await request.json();
-
-  // Validate input structure
-  if (typeof body !== 'object' || body === null) {
-    throw new Error('Request body must be a non-null object');
-  }
-
-  // Explicitly type and validate
-  const processedBody: Record<string, unknown> = body;
-  return InvitationSchema.parse({
-    email: typeof processedBody.email === 'string' ? processedBody.email : '',
-    roleName: typeof processedBody.roleName === 'string' ? processedBody.roleName : ''
-  });
+  return InvitationSchema.parse(body);
 }
 
 // POST /api/admin/invitations - Create a new invitation
