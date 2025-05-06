@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 // Validation schema for team creation
 const TeamCreateSchema = z.object({
@@ -109,8 +110,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Handle Prisma unique constraint errors
-    if (error.code === 'P2002') {
+    // Handle Prisma unique constraint errors - properly type check for Prisma errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'A team with this name already exists.' }, 
         { status: 409 }
@@ -192,6 +193,13 @@ export async function PUT(request: NextRequest) {
       );
     }
     
+    // Handle Prisma errors with proper type checking
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
+      }
+    }
+    
     return NextResponse.json({ error: 'Failed to update team.' }, { status: 500 });
   }
 }
@@ -245,6 +253,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting team:", error);
+    
+    // Handle Prisma errors with proper type checking
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
+      }
+    }
+    
     return NextResponse.json({ error: 'Failed to delete team.' }, { status: 500 });
   }
 }
