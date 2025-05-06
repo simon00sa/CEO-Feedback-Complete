@@ -1,7 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient } from '@prisma/client';
-
-// Use the singleton pattern to avoid connection issues
+// Remove the unused PrismaClient import
 import prisma from '../src/lib/prisma';
 
 async function main() {
