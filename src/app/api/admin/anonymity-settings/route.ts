@@ -5,7 +5,6 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { randomBytes } from 'crypto';
 
 // Schema with only core fields we know exist
 const AnonymitySettingsSchema = z.object({
@@ -14,13 +13,6 @@ const AnonymitySettingsSchema = z.object({
   activityThresholdDays: z.number().default(30),
   combinationLogic: z.string().default('DEPARTMENT'),
   enableGrouping: z.boolean().default(true),
-});
-
-// Schema for validating invitation data
-const InvitationSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(["ADMIN", "LEADERSHIP", "STAFF"]),
-  orgId: z.string(),
 });
 
 // Helper to check if user is admin
@@ -130,75 +122,4 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// POST /api/admin/anonymity-settings - For creating invitations
-export async function POST(req: NextRequest) {
-  try {
-    // Check authentication and admin status
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    
-    // Verify user is an admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true },
-    });
-    
-    if (!user || user.role?.name !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized - Admin access required" }, { status: 403 });
-    }
-    
-    // Parse and validate request body
-    const body = await req.json();
-    const validatedData = InvitationSchema.parse(body);
-    
-    // Create invitation with correct relationship structures
-    const invitation = await prisma.invitation.create({
-      data: {
-        email: validatedData.email,
-        role: {
-          connect: {
-            name: validatedData.role
-          }
-        },
-        orgId: validatedData.orgId,
-        inviter: {
-          connect: {
-            id: session.user.id
-          }
-        },
-        status: 'PENDING',
-        token: generateToken(),
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      },
-    });
-    
-    return NextResponse.json({ success: true, invitation });
-  } catch (error) {
-    console.error("Error creating invitation:", error);
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation error", details: error.errors }, { status: 400 });
-    }
-    
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') {
-        return NextResponse.json(
-          { error: "An invitation for this email already exists." },
-          { status: 409 }
-        );
-      }
-    }
-    
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-// Function to generate a secure token using crypto
-function generateToken(): string {
-  return randomBytes(32).toString('hex');
 }
