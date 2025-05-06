@@ -1,28 +1,28 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from '@/lib/authOptions';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
-const prisma = new PrismaClient();
-
-// Helper to check for Admin role
-async function isAdmin(request: Request): Promise<boolean> {
+// Helper to check for Admin role - removed unused request parameter
+async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
+  
   if (!session?.user) {
     return false;
   }
-
+  
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: { role: true }
   });
-
-  return !!user && user.role.name.toUpperCase() === 'ADMIN';
+  
+  return !!user && user.role?.name?.toUpperCase() === 'ADMIN';
 }
 
 // GET /api/admin/settings - Fetch all application settings
-export async function GET(request: Request) {
-  if (!(await isAdmin(request))) {
+export async function GET() {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
   
@@ -42,8 +42,8 @@ export async function GET(request: Request) {
 }
 
 // PUT /api/admin/settings - Update application settings (bulk update)
-export async function PUT(request: Request) {
-  if (!(await isAdmin(request))) {
+export async function PUT(request: NextRequest) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
   }
   
@@ -81,7 +81,14 @@ export async function PUT(request: Request) {
     return NextResponse.json(settingsObject, { status: 200 });
   } catch (error) {
     console.error("Error updating settings:", error);
-    // Check for specific Prisma errors if needed
+    
+    // Handle Prisma errors with proper type checking
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return NextResponse.json({ 
+        error: `Database error: ${error.message}` 
+      }, { status: 500 });
+    }
+    
     return NextResponse.json({ error: 'Failed to update settings.' }, { status: 500 });
   }
 }
