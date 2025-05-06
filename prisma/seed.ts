@@ -22,26 +22,6 @@ async function main() {
     console.log(`Created or found role with id: ${role.id} (${role.name})`);
   }
   
-  // Create default anonymity settings if they don't exist
-  const existingSettings = await prisma.anonymitySettings.findFirst();
-  
-  if (!existingSettings) {
-    const settings = await prisma.anonymitySettings.create({
-      data: {
-        minGroupSize: 8,
-        minActiveUsers: 5,
-        activityThresholdDays: 30,
-        combinationLogic: 'DEPARTMENT',
-        enableGrouping: true,
-        anonymityLevel: 'MEDIUM',
-        enableAnonymousComments: true,
-        enableAnonymousVotes: true,
-        enableAnonymousAnalytics: false,
-      },
-    });
-    console.log(`Created default anonymity settings with id: ${settings.id}`);
-  }
-  
   console.log(`Seeding finished.`);
 }
 
