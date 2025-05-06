@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { randomBytes } from "crypto";
 
 // Schema validation for invitation data
 const invitationSchema = z.object({
@@ -35,20 +36,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = invitationSchema.parse(body);
     
-    // Create invitation with correct role relationship
+    // Create invitation with correct relationship structures
     const invitation = await prisma.invitation.create({
       data: {
         email: validatedData.email,
         role: {
-          // Fix: Use proper nested structure for relationship
           connect: {
             name: validatedData.role
           }
         },
         orgId: validatedData.orgId,
-        inviterId: session.user.id,
+        inviter: {
+          connect: {
+            id: session.user.id
+          }
+        },
         status: 'PENDING',
-        token: generateToken(), // Implement this function to create a secure token
+        token: generateToken(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       },
     });
@@ -88,9 +92,7 @@ export async function GET() {
   }
 }
 
-// Function to generate a secure token
+// Function to generate a secure token using crypto instead of Math.random()
 function generateToken(): string {
-  // Generate a random token (implementation could use crypto for better security)
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15);
+  return randomBytes(32).toString('hex');
 }
