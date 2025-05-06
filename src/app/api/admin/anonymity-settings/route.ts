@@ -1,9 +1,10 @@
-// src/app/api/admin/anonymity-settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+import { randomBytes } from 'crypto';
 
 // Schema for validating anonymity settings
 const AnonymitySettingsSchema = z.object({
@@ -11,6 +12,11 @@ const AnonymitySettingsSchema = z.object({
   enableAnonymousVotes: z.boolean(),
   enableAnonymousAnalytics: z.boolean(),
   anonymityLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  minGroupSize: z.number().optional().default(8),
+  minActiveUsers: z.number().optional().default(5),
+  activityThresholdDays: z.number().optional().default(30),
+  combinationLogic: z.string().optional().default('DEPARTMENT'),
+  enableGrouping: z.boolean().optional().default(true),
 });
 
 // Schema for validating invitation data
@@ -20,8 +26,8 @@ const InvitationSchema = z.object({
   orgId: z.string(),
 });
 
-// Helper to check if user is admin
-async function isAdmin() {
+// Helper to check if user is admin - no parameters needed
+async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
   
   if (!session?.user) {
@@ -176,16 +182,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Validation error", details: error.errors }, { status: 400 });
     }
     
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          { error: "An invitation for this email already exists." },
+          { status: 409 }
+        );
+      }
+    }
+    
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-// Function to generate a secure token
+// Function to generate a secure token using crypto
 function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  return randomBytes(32).toString('hex');
 }
