@@ -4,7 +4,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
 // Schema for validating invitation data
@@ -93,8 +92,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Validation error", details: error.errors }, { status: 400 });
     }
     
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') {
+    // Check for Prisma errors without using instanceof
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      // This is likely a Prisma error
+      const prismaError = error as { code: string };
+      if (prismaError.code === 'P2002') {
         return NextResponse.json(
           { error: "An invitation for this email already exists." },
           { status: 409 }
