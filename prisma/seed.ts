@@ -26,18 +26,39 @@ async function main() {
   const existingSettings = await prisma.anonymitySettings.findFirst();
   
   if (!existingSettings) {
-    const settings = await prisma.anonymitySettings.create({
-      data: {
-        // Fields based on your actual schema properties
-        minGroupSize: 8,
-        minActiveUsers: 5,
-        activityThresholdDays: 30,
-        combinationLogic: 'DEPARTMENT',
-        enableGrouping: true,
-        anonymityLevel: 'MEDIUM',
-      },
-    });
-    console.log(`Created default anonymity settings with id: ${settings.id}`);
+    try {
+      // First try with all fields based on your anonymity-settings route.ts
+      const settings = await prisma.anonymitySettings.create({
+        data: {
+          minGroupSize: 8,
+          minActiveUsers: 5,
+          activityThresholdDays: 30,
+          combinationLogic: 'DEPARTMENT',
+          enableGrouping: true,
+          anonymityLevel: 'MEDIUM',
+          // These might be in your schema based on your route.ts file
+          enableAnonymousComments: true,
+          enableAnonymousVotes: true,
+          enableAnonymousAnalytics: false,
+        },
+      });
+      console.log(`Created default anonymity settings with id: ${settings.id}`);
+    } catch (error) {
+      console.error("Error creating settings with all fields, trying with basic fields only:", error);
+      
+      // Fallback to only required fields if the above fails
+      const settings = await prisma.anonymitySettings.create({
+        data: {
+          minGroupSize: 8,
+          minActiveUsers: 5,
+          activityThresholdDays: 30,
+          combinationLogic: 'DEPARTMENT',
+          enableGrouping: true,
+          anonymityLevel: 'MEDIUM',
+        },
+      });
+      console.log(`Created default anonymity settings with basic fields, id: ${settings.id}`);
+    }
   }
   
   console.log(`Seeding finished.`);
