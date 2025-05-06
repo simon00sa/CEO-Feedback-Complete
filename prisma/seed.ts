@@ -1,5 +1,4 @@
 // prisma/seed.ts
-// Remove the unused PrismaClient import
 import prisma from '../src/lib/prisma';
 
 async function main() {
@@ -29,15 +28,13 @@ async function main() {
   if (!existingSettings) {
     const settings = await prisma.anonymitySettings.create({
       data: {
-        enableAnonymousComments: true,
-        enableAnonymousVotes: true,
-        enableAnonymousAnalytics: false,
-        anonymityLevel: 'MEDIUM',
+        // Fields based on your actual schema properties
         minGroupSize: 8,
         minActiveUsers: 5,
         activityThresholdDays: 30,
         combinationLogic: 'DEPARTMENT',
         enableGrouping: true,
+        anonymityLevel: 'MEDIUM',
       },
     });
     console.log(`Created default anonymity settings with id: ${settings.id}`);
