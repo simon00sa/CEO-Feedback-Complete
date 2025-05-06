@@ -7,14 +7,13 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
-// Schema with only fields we know exist in the schema
+// Schema with only core fields we know exist
 const AnonymitySettingsSchema = z.object({
   minGroupSize: z.number().default(8),
   minActiveUsers: z.number().default(5),
   activityThresholdDays: z.number().default(30),
   combinationLogic: z.string().default('DEPARTMENT'),
   enableGrouping: z.boolean().default(true),
-  anonymityLevel: z.string().default('MEDIUM'),
 });
 
 // Schema for validating invitation data
@@ -24,7 +23,7 @@ const InvitationSchema = z.object({
   orgId: z.string(),
 });
 
-// Helper to check if user is admin - no parameters needed
+// Helper to check if user is admin
 async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
   
@@ -52,7 +51,7 @@ export async function GET() {
     const settings = await prisma.anonymitySettings.findFirst();
     
     if (!settings) {
-      // Create default settings with minimal fields
+      // Create default settings with absolute minimal fields
       const defaultSettings = await prisma.anonymitySettings.create({
         data: {
           minGroupSize: 8,
@@ -92,7 +91,7 @@ export async function PUT(request: NextRequest) {
     
     let settings;
     if (existingSettings) {
-      // Update existing record - only use minimal fields
+      // Update with absolute minimal fields
       settings = await prisma.anonymitySettings.update({
         where: { id: existingSettings.id },
         data: {
@@ -101,11 +100,10 @@ export async function PUT(request: NextRequest) {
           activityThresholdDays: validatedData.activityThresholdDays,
           combinationLogic: validatedData.combinationLogic,
           enableGrouping: validatedData.enableGrouping,
-          anonymityLevel: validatedData.anonymityLevel,
         },
       });
     } else {
-      // Create new record - only use minimal fields
+      // Create with absolute minimal fields
       settings = await prisma.anonymitySettings.create({
         data: {
           minGroupSize: validatedData.minGroupSize,
@@ -113,7 +111,6 @@ export async function PUT(request: NextRequest) {
           activityThresholdDays: validatedData.activityThresholdDays,
           combinationLogic: validatedData.combinationLogic,
           enableGrouping: validatedData.enableGrouping,
-          anonymityLevel: validatedData.anonymityLevel,
         },
       });
     }
@@ -179,8 +176,6 @@ export async function POST(req: NextRequest) {
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       },
     });
-    
-    // TODO: Send invitation email
     
     return NextResponse.json({ success: true, invitation });
   } catch (error) {
