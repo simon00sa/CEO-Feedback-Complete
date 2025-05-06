@@ -1,67 +1,86 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
-// Schema for invitation validation
-const InvitationSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(['ADMIN', 'LEADERSHIP', 'STAFF']),
-  orgId: z.string().uuid(),
+// Schema for validation
+const AnonymitySettingsSchema = z.object({
+  enableAnonymousComments: z.boolean(),
+  enableAnonymousVotes: z.boolean(),
+  enableAnonymousAnalytics: z.boolean(),
+  anonymityLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
 });
 
-// POST /api/admin/invitations - Create a new invitation
-export async function POST(request: NextRequest) {
+// Helper function to check if user is admin
+async function isAdmin(session: any) {
+  return session?.user?.role === 'ADMIN';
+}
+
+// GET /api/admin/anonymity-settings
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user || !(await isAdmin(session))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const settings = await prisma.anonymitySettings.findFirst();
+    
+    if (!settings) {
+      // Create default settings if none exist
+      const defaultSettings = await prisma.anonymitySettings.create({
+        data: {
+          enableAnonymousComments: true,
+          enableAnonymousVotes: true,
+          enableAnonymousAnalytics: false,
+          anonymityLevel: 'MEDIUM',
+        },
+      });
+      return NextResponse.json(defaultSettings);
+    }
+
+    return NextResponse.json(settings);
+  } catch (error) {
+    console.error('Error fetching anonymity settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch anonymity settings' }, 
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/admin/anonymity-settings
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user || !(await isAdmin(session))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const validatedData = InvitationSchema.parse(body);
+    const validatedData = AnonymitySettingsSchema.parse(body);
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' }, 
-        { status: 400 }
-      );
+    // First, find an existing record
+    const existingSettings = await prisma.anonymitySettings.findFirst();
+    
+    let settings;
+    if (existingSettings) {
+      // Update existing record
+      settings = await prisma.anonymitySettings.update({
+        where: { id: existingSettings.id },
+        data: validatedData,
+      });
+    } else {
+      // Create new record
+      settings = await prisma.anonymitySettings.create({
+        data: validatedData,
+      });
     }
 
-    // First, find the role by name
-    const role = await prisma.role.findUnique({
-      where: { name: validatedData.role }
-    });
-
-    if (!role) {
-      return NextResponse.json(
-        { error: `Role '${validatedData.role}' not found` },
-        { status: 400 }
-      );
-    }
-
-    // Create invitation with correct role relation
-    const invitation = await prisma.invitation.create({
-      data: {
-        email: validatedData.email,
-        role: { connect: { id: role.id } },
-        orgId: validatedData.orgId,
-        inviterId: session.user.id,
-        status: 'PENDING',
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-      },
-    });
-
-    // TODO: Send invitation email here
-
-    return NextResponse.json(invitation, { status: 201 });
+    return NextResponse.json(settings);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -70,44 +89,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.error('Error creating invitation:', error);
+    console.error('Error updating anonymity settings:', error);
     return NextResponse.json(
-      { error: 'Failed to create invitation' }, 
-      { status: 500 }
-    );
-  }
-}
-
-// GET /api/admin/invitations - List all invitations
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const invitations = await prisma.invitation.findMany({
-      include: {
-        inviter: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
-        },
-        role: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return NextResponse.json(invitations);
-  } catch (error) {
-    console.error('Error fetching invitations:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch invitations' }, 
+      { error: 'Failed to update anonymity settings' }, 
       { status: 500 }
     );
   }
