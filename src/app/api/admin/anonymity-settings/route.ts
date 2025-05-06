@@ -12,8 +12,6 @@ const AnonymitySettingsSchema = z.object({
   anonymityLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
 });
 
-type AnonymitySettingsBody = z.infer<typeof AnonymitySettingsSchema>;
-
 // Helper function to check if user is admin
 async function isAdmin(session: any) {
   return session?.user?.role === 'ADMIN';
