@@ -63,11 +63,22 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const validatedData = AnonymitySettingsSchema.parse(body);
 
-    const settings = await prisma.anonymitySettings.upsert({
-      where: { id: 1 },
-      update: validatedData,
-      create: validatedData,
-    });
+    // First, find an existing record
+    const existingSettings = await prisma.anonymitySettings.findFirst();
+    
+    let settings;
+    if (existingSettings) {
+      // Update existing record
+      settings = await prisma.anonymitySettings.update({
+        where: { id: existingSettings.id },
+        data: validatedData,
+      });
+    } else {
+      // Create new record
+      settings = await prisma.anonymitySettings.create({
+        data: validatedData,
+      });
+    }
 
     return NextResponse.json(settings);
   } catch (error) {
