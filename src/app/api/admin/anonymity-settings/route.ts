@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
-// Schema for validating anonymity settings - updated to match actual schema
+// Schema with only fields we know exist in the schema
 const AnonymitySettingsSchema = z.object({
   minGroupSize: z.number().default(8),
   minActiveUsers: z.number().default(5),
@@ -15,9 +15,6 @@ const AnonymitySettingsSchema = z.object({
   combinationLogic: z.string().default('DEPARTMENT'),
   enableGrouping: z.boolean().default(true),
   anonymityLevel: z.string().default('MEDIUM'),
-  enableAnonymousComments: z.boolean().default(true),
-  enableAnonymousVotes: z.boolean().default(true),
-  enableAnonymousAnalytics: z.boolean().default(false),
 });
 
 // Schema for validating invitation data
@@ -55,7 +52,7 @@ export async function GET() {
     const settings = await prisma.anonymitySettings.findFirst();
     
     if (!settings) {
-      // Create default settings if none exist - only use actual schema fields
+      // Create default settings with minimal fields
       const defaultSettings = await prisma.anonymitySettings.create({
         data: {
           minGroupSize: 8,
@@ -95,7 +92,7 @@ export async function PUT(request: NextRequest) {
     
     let settings;
     if (existingSettings) {
-      // Update existing record - only use fields that exist in the schema
+      // Update existing record - only use minimal fields
       settings = await prisma.anonymitySettings.update({
         where: { id: existingSettings.id },
         data: {
@@ -104,13 +101,11 @@ export async function PUT(request: NextRequest) {
           activityThresholdDays: validatedData.activityThresholdDays,
           combinationLogic: validatedData.combinationLogic,
           enableGrouping: validatedData.enableGrouping,
-          enableAnonymousComments: validatedData.enableAnonymousComments,
-          enableAnonymousVotes: validatedData.enableAnonymousVotes,
-          enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
+          anonymityLevel: validatedData.anonymityLevel,
         },
       });
     } else {
-      // Create new record - only use fields that exist in the schema
+      // Create new record - only use minimal fields
       settings = await prisma.anonymitySettings.create({
         data: {
           minGroupSize: validatedData.minGroupSize,
@@ -118,9 +113,7 @@ export async function PUT(request: NextRequest) {
           activityThresholdDays: validatedData.activityThresholdDays,
           combinationLogic: validatedData.combinationLogic,
           enableGrouping: validatedData.enableGrouping,
-          enableAnonymousComments: validatedData.enableAnonymousComments,
-          enableAnonymousVotes: validatedData.enableAnonymousVotes,
-          enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
+          anonymityLevel: validatedData.anonymityLevel,
         },
       });
     }
