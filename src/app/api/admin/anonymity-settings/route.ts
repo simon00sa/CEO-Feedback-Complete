@@ -1,3 +1,4 @@
+// src/app/api/admin/anonymity-settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -6,17 +7,17 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
-// Schema for validating anonymity settings
+// Schema for validating anonymity settings - updated to match actual schema
 const AnonymitySettingsSchema = z.object({
-  enableAnonymousComments: z.boolean(),
-  enableAnonymousVotes: z.boolean(),
-  enableAnonymousAnalytics: z.boolean(),
-  anonymityLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
-  minGroupSize: z.number().optional().default(8),
-  minActiveUsers: z.number().optional().default(5),
-  activityThresholdDays: z.number().optional().default(30),
-  combinationLogic: z.string().optional().default('DEPARTMENT'),
-  enableGrouping: z.boolean().optional().default(true),
+  minGroupSize: z.number().default(8),
+  minActiveUsers: z.number().default(5),
+  activityThresholdDays: z.number().default(30),
+  combinationLogic: z.string().default('DEPARTMENT'),
+  enableGrouping: z.boolean().default(true),
+  anonymityLevel: z.string().default('MEDIUM'),
+  enableAnonymousComments: z.boolean().default(true),
+  enableAnonymousVotes: z.boolean().default(true),
+  enableAnonymousAnalytics: z.boolean().default(false),
 });
 
 // Schema for validating invitation data
@@ -54,13 +55,9 @@ export async function GET() {
     const settings = await prisma.anonymitySettings.findFirst();
     
     if (!settings) {
-      // Create default settings if none exist
+      // Create default settings if none exist - only use actual schema fields
       const defaultSettings = await prisma.anonymitySettings.create({
         data: {
-          enableAnonymousComments: true,
-          enableAnonymousVotes: true,
-          enableAnonymousAnalytics: false,
-          anonymityLevel: 'MEDIUM',
           minGroupSize: 8,
           minActiveUsers: 5,
           activityThresholdDays: 30,
@@ -98,15 +95,33 @@ export async function PUT(request: NextRequest) {
     
     let settings;
     if (existingSettings) {
-      // Update existing record
+      // Update existing record - only use fields that exist in the schema
       settings = await prisma.anonymitySettings.update({
         where: { id: existingSettings.id },
-        data: validatedData,
+        data: {
+          minGroupSize: validatedData.minGroupSize,
+          minActiveUsers: validatedData.minActiveUsers,
+          activityThresholdDays: validatedData.activityThresholdDays,
+          combinationLogic: validatedData.combinationLogic,
+          enableGrouping: validatedData.enableGrouping,
+          enableAnonymousComments: validatedData.enableAnonymousComments,
+          enableAnonymousVotes: validatedData.enableAnonymousVotes,
+          enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
+        },
       });
     } else {
-      // Create new record
+      // Create new record - only use fields that exist in the schema
       settings = await prisma.anonymitySettings.create({
-        data: validatedData,
+        data: {
+          minGroupSize: validatedData.minGroupSize,
+          minActiveUsers: validatedData.minActiveUsers,
+          activityThresholdDays: validatedData.activityThresholdDays,
+          combinationLogic: validatedData.combinationLogic,
+          enableGrouping: validatedData.enableGrouping,
+          enableAnonymousComments: validatedData.enableAnonymousComments,
+          enableAnonymousVotes: validatedData.enableAnonymousVotes,
+          enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
+        },
       });
     }
     
