@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.role === 'ADMIN') {
+    if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,14 +35,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create invitation
+    // First, find the role by name
+    const role = await prisma.role.findUnique({
+      where: { name: validatedData.role }
+    });
+
+    if (!role) {
+      return NextResponse.json(
+        { error: `Role '${validatedData.role}' not found` },
+        { status: 400 }
+      );
+    }
+
+    // Create invitation with correct role relation
     const invitation = await prisma.invitation.create({
       data: {
         email: validatedData.email,
-        role: validatedData.role,
+        role: { connect: { id: role.id } },
         orgId: validatedData.orgId,
         inviterId: session.user.id,
         status: 'PENDING',
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       },
     });
 
@@ -70,7 +83,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.role === 'ADMIN') {
+    if (!session?.user || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -83,6 +96,7 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
+        role: true,
       },
       orderBy: {
         createdAt: 'desc',
