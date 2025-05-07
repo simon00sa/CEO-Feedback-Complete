@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 
 // Helper to check for Admin role - removed unused request parameter
 async function isAdmin(): Promise<boolean> {
@@ -82,10 +81,11 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error("Error updating settings:", error);
     
-    // Handle Prisma errors with proper type checking
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // Safer error handling without instanceof
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      const prismaError = error as { code: string; message: string };
       return NextResponse.json({ 
-        error: `Database error: ${error.message}` 
+        error: `Database error: ${prismaError.message || 'Unknown error'}` 
       }, { status: 500 });
     }
     
