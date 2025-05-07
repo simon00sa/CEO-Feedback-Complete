@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Handle Prisma unique constraint errors - properly type check for Prisma errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    if (typeof error === 'object' && error !== null && 'code' in error && (error as any).code === 'P2002') {
       return NextResponse.json(
         { error: 'A team with this name already exists.' }, 
         { status: 409 }
