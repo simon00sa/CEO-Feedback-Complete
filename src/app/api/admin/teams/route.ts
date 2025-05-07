@@ -1,8 +1,7 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from '@/lib/authOptions';
-const prisma = new PrismaClient();
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 // Helper to check for Admin role
 async function isAdmin(request: Request): Promise<boolean> {
@@ -93,6 +92,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create team.' }, { status: 500 });
   }
 }
-
-// TODO: Add PUT /api/admin/teams/[teamId] for updating a team
-// TODO: Add DELETE /api/admin/teams/[teamId] for deleting a team (consider implications for users)
