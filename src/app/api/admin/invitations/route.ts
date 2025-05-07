@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
     }
     
-    // Create invitation with correct relationship structures
+    // Create invitation with correct relationship structures - fixed field names
     const invitation = await prisma.invitation.create({
       data: {
         email: validatedData.email,
@@ -71,11 +71,8 @@ export async function POST(req: NextRequest) {
             id: role.id
           }
         },
-        inviter: {
-          connect: {
-            id: session.user.id
-          }
-        },
+        // Using inviterId directly instead of nested inviter object
+        inviterId: session.user.id,
         status: 'PENDING',
         token: generateToken(),
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
