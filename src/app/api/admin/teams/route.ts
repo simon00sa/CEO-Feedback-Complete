@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/authOptions';
-
 const prisma = new PrismaClient();
 
 // Helper to check for Admin role
@@ -11,13 +10,11 @@ async function isAdmin(request: Request): Promise<boolean> {
   if (!session?.user) {
     return false;
   }
-
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: { role: true }
   });
-
-  return !!user && user.role.name.toUpperCase() === 'ADMIN';
+  return !!user && user.role?.name?.toUpperCase() === 'ADMIN';
 }
 
 // GET /api/admin/teams - Fetch all teams
@@ -84,10 +81,15 @@ export async function POST(request: Request) {
     return NextResponse.json(newTeam, { status: 201 });
   } catch (error) {
     console.error("Error creating team:", error);
-    // Handle potential Prisma unique constraint errors more gracefully if needed
-    if (error.code === 'P2002') { // Prisma unique constraint violation
-       return NextResponse.json({ error: 'A team with this name might already exist.' }, { status: 409 });
+    
+    // Safer error handling without instanceof
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      const prismaError = error as { code: string };
+      if (prismaError.code === 'P2002') { // Prisma unique constraint violation
+        return NextResponse.json({ error: 'A team with this name might already exist.' }, { status: 409 });
+      }
     }
+    
     return NextResponse.json({ error: 'Failed to create team.' }, { status: 500 });
   }
 }
