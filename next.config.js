@@ -22,8 +22,8 @@ const nextConfig = {
       "node:timers": "timers",
       "node:assert": "assert",
     };
-    
-    // For client-side: provide empty implementations for Node modules
+
+    // Fallbacks for client-side builds
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -38,18 +38,35 @@ const nextConfig = {
         tls: false,
         net: false,
         dns: false,
+        module: false, // Ensure module is excluded on client-side
       };
     }
-    
+
     // Prevent server-side dependencies from being bundled
     if (isServer) {
       config.externals = [
         ...(config.externals || []),
+        ({ request }, callback) => {
+          // Exclude modules that are Node.js core modules
+          const isNodeModule = [
+            "child_process",
+            "fs",
+            "os",
+            "path",
+            "module",
+            "fs/promises",
+          ].some((module) => request === module || request.startsWith(`node:${module}`));
+
+          if (isNodeModule) {
+            return callback(null, `commonjs ${request}`);
+          }
+          callback();
+        },
         "nodemailer", // Exclude nodemailer from the server-side bundle
         "pg-native",  // Exclude pg-native from the server-side bundle
       ];
     }
-    
+
     return config;
   },
 };
