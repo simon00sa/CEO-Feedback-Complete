@@ -12,21 +12,47 @@ const nextConfig = {
       "node:url": "url",
       "node:child_process": "child_process",
       "node:module": "module",
+      "node:util": "util",
+      "node:stream": "stream",
+      "node:buffer": "buffer",
+      "node:crypto": "crypto",
+      "node:events": "events",
     };
-
+    
+    // For client-side: provide empty implementations for Node modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+        crypto: false,
+        stream: false,
+        buffer: false,
+        util: false,
+        child_process: false,
+        tls: false,
+        net: false,
+        dns: false,
+      };
+    }
+    
+    // Exclude Node.js core modules from being bundled on the server side
     if (isServer) {
       config.externals = [
         ...(config.externals || []),
+        "nodemailer",
+        "pg-native",
         ({ request }, callback) => {
-          // Exclude Node.js core modules from being bundled
+          // Handle node: prefixed modules explicitly
           if (request.startsWith("node:")) {
-            return callback(null, `commonjs ${request}`);
+            return callback(null, `commonjs ${request.substring(5)}`);
           }
           callback();
         },
       ];
     }
-
+    
     return config;
   },
 };
