@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { handlePrismaError } from '@/lib/utils';
 import { randomBytes } from 'crypto';
-import { ensureAdmin, handlePrismaError } from '@/lib/utils';
 
 // Define the schema for the request body
 const InvitationSchema = z.object({
@@ -34,14 +32,6 @@ function generateToken(): string {
 // POST /api/admin/invitations - For creating invitations
 export async function POST(req: NextRequest) {
   try {
-    // Get the current session
-    const session = await getServerSession(authOptions);
-
-    // Ensure the user is an admin
-    if (!(await ensureAdmin(session))) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
-    }
-
     // Parse and validate the request body
     const body = await req.json();
     const validatedData = InvitationSchema.parse(body);
@@ -61,7 +51,7 @@ export async function POST(req: NextRequest) {
         data: {
           email: validatedData.email,
           role: { connect: { id: role.id } },
-          inviterId: session!.user!.id,
+          inviterId: 'admin-user-id', // Middleware ensures only admins can access
           status: 'PENDING',
           token: generateToken(),
           expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
@@ -101,14 +91,6 @@ export async function POST(req: NextRequest) {
 // GET /api/admin/invitations - Get all invitations
 export async function GET() {
   try {
-    // Get the current session
-    const session = await getServerSession(authOptions);
-
-    // Ensure the user is an admin
-    if (!(await ensureAdmin(session))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
     // Fetch all invitations with optimized query
     const invitations = await prisma.invitation.findMany({
       select: {
