@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import prisma from "./prisma";
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { AdapterUser } from "next-auth/adapters";
 import type { NextAuthOptions } from "next-auth";
@@ -11,6 +12,32 @@ import type { NextAuthOptions } from "next-auth";
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
+    // Temporarily use a credentials provider for testing instead of email
+    CredentialsProvider({
+      name: "Development Testing",
+      credentials: {
+        email: { label: "Email", type: "email" },
+      },
+      async authorize(credentials) {
+        // Automatically authorize any user during testing
+        if (!credentials?.email) {
+          return null;
+        }
+        
+        // Create or find a test user in the database
+        const user = await prisma.user.upsert({
+          where: { email: credentials.email },
+          update: {},
+          create: {
+            email: credentials.email,
+            name: "Test User",
+          },
+        });
+        return user;
+      },
+    }),
+    // Email provider commented out for now, will be enabled in production
+    /*
     EmailProvider({
       server: {
         host: process.env.EMAIL_SERVER_HOST,
@@ -41,7 +68,7 @@ export const authOptions: NextAuthOptions = {
         // await sendEmail({ to: email, from: provider.from, subject: 'Sign in to Speak Up', text: `Sign in using this link: ${verificationUrl}` });
       }
     }),
-    // Add other providers here if needed (e.g., Google, GitHub)
+    */
   ],
   pages: {
     // Specify custom sign-in page if needed, which can handle the invitation token
@@ -52,39 +79,60 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
-      // This callback runs when a user tries to sign in or during the email verification process
+      // For credentials provider during testing, always allow sign-in
+      if (credentials) {
+        return true;
+      }
+      
+      // This is for when email provider is re-enabled
       if (email?.verificationRequest) {
-        // This is part of the email verification flow
-        // We need to check for the invitation token potentially passed in the URL
-        // This logic might be better placed in a custom sign-in page or handled differently
-        // depending on how the token is passed back from the email link.
-        // For now, we assume the token check happens *before* user creation or during it.
         return true; // Allow the sign-in process to continue
       }
+      
       // For other sign-in methods (OAuth), check if the user exists
       const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
       if (existingUser) {
         return true; // Allow sign-in for existing users
       }
       
-      // If it's a new user trying to sign in directly (without email verification link?)
-      // We might want to block this unless they have an invitation.
-      // This needs careful handling based on the exact flow.
-      // For now, let's assume email verification is the primary way new users are created.
       return true; 
     },
-    async session({ session, user }) {
+    async session({ session, user, token }) {
       // Add user ID and role to the session object
       if (session.user) {
-        session.user.id = user.id;
+        // When using JWT strategy with Credentials provider
+        if (token?.sub) {
+          session.user.id = token.sub;
+          const userWithRole = await prisma.user.findUnique({
+            where: { id: token.sub },
+            include: { role: true },
+          });
+          session.user.role = userWithRole?.role?.name || null;
+        } 
+        // When using database sessions (adapter)
+        else if (user?.id) {
+          session.user.id = user.id;
+          const userWithRole = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: { role: true },
+          });
+          session.user.role = userWithRole?.role?.name || null;
+        }
+      }
+      return session;
+    },
+    async jwt({ token, user }) {
+      // If a user object is provided, add any custom properties to the JWT
+      if (user) {
+        token.id = user.id;
         const userWithRole = await prisma.user.findUnique({
           where: { id: user.id },
           include: { role: true },
         });
-        session.user.role = userWithRole?.role?.name || null;
+        token.role = userWithRole?.role?.name || null;
       }
-      return session;
-    },
+      return token;
+    }
   },
   events: {
     async createUser(message) {
@@ -92,17 +140,6 @@ export const authOptions: NextAuthOptions = {
       const user = message.user as AdapterUser;
       console.log("createUser event triggered for:", user.email);
       
-      // Check if there was a valid, unused invitation for this email
-      // This requires passing the invitation token through the sign-up flow
-      // which is complex with the default EmailProvider flow.
-      // A custom sign-up page or modifying the adapter might be needed.
-      
-      // --- Alternative Approach: Check invitation *before* adapter creates user --- 
-      // This is difficult with the standard flow. Let's assume we handle role assignment
-      // slightly differently for now, perhaps by checking the invitation *after* creation
-      // and updating the user record. This isn't ideal as it's not atomic.
-      
-      // --- Simplified Approach for now: Assign default role or handle later --- 
       // Find the invitation based on email (assuming it's still valid)
       const invitation = await prisma.invitation.findFirst({
         where: {
@@ -139,6 +176,10 @@ export const authOptions: NextAuthOptions = {
         });
       }
     },
+  },
+  // Use JWT strategy for Credentials provider
+  session: {
+    strategy: "jwt",
   },
   // Enable debug messages in development
   debug: process.env.NODE_ENV === 'development',
@@ -201,3 +242,11 @@ export async function isAuthorized(userId: string, requiredRole: string) {
   const requiredLevel = roleHierarchy[requiredRole] || 0;
   return userLevel >= requiredLevel;
 }
+
+// Utility function to check if a user is an admin
+export async function isUserAdmin(userId: string): Promise<boolean> {
+  return isAuthorized(userId, 'Admin');
+}
+
+// Export a singleton instance for auth across the application
+export const getAuth = () => authOptions;
