@@ -1,11 +1,11 @@
-// src/app/api/admin/anonymity-settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { ensureAdmin, handlePrismaError } from '@/lib/utils';
 
-// Schema with only core fields we know exist
+// Define the schema for anonymity settings
 const AnonymitySettingsSchema = z.object({
   minGroupSize: z.number().default(8),
   minActiveUsers: z.number().default(5),
@@ -14,36 +14,33 @@ const AnonymitySettingsSchema = z.object({
   enableGrouping: z.boolean().default(true),
 });
 
-// Helper to check if user is admin
-async function isAdmin(): Promise<boolean> {
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.user) {
-    return false;
-  }
-  
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { role: true },
-  });
-  
-  return user?.role?.name === "ADMIN";
-}
+// Define the type for the response
+type AnonymitySettingsResponse = {
+  id: string;
+  minGroupSize: number;
+  minActiveUsers: number;
+  activityThresholdDays: number;
+  combinationLogic: string;
+  enableGrouping: boolean;
+};
 
-// GET /api/admin/anonymity-settings
+// GET /api/admin/anonymity-settings - Retrieve anonymity settings
 export async function GET() {
   try {
+    // Get the current session
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user || !(await isAdmin())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Ensure the user is an admin
+    if (!(await ensureAdmin(session))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
-    
-    const settings = await prisma.anonymitySettings.findFirst();
-    
+
+    // Fetch the anonymity settings
+    let settings = await prisma.anonymitySettings.findFirst();
+
     if (!settings) {
-      // Create default settings with absolute minimal fields
-      const defaultSettings = await prisma.anonymitySettings.create({
+      // Create default settings if none exist
+      settings = await prisma.anonymitySettings.create({
         data: {
           minGroupSize: 8,
           minActiveUsers: 5,
@@ -52,73 +49,77 @@ export async function GET() {
           enableGrouping: true,
         },
       });
-      return NextResponse.json(defaultSettings);
     }
-    
-    return NextResponse.json(settings);
+
+    const response: AnonymitySettingsResponse = {
+      id: settings.id,
+      minGroupSize: settings.minGroupSize,
+      minActiveUsers: settings.minActiveUsers,
+      activityThresholdDays: settings.activityThresholdDays,
+      combinationLogic: settings.combinationLogic,
+      enableGrouping: settings.enableGrouping,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching anonymity settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch anonymity settings' }, 
-      { status: 500 }
-    );
+    return handlePrismaError(error);
   }
 }
 
-// PUT /api/admin/anonymity-settings
-export async function PUT(request: NextRequest) {
+// PUT /api/admin/anonymity-settings - Update anonymity settings
+export async function PUT(req: NextRequest) {
   try {
+    // Get the current session
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user || !(await isAdmin())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Ensure the user is an admin
+    if (!(await ensureAdmin(session))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
-    
-    const body = await request.json();
+
+    // Parse and validate the request body
+    const body = await req.json();
     const validatedData = AnonymitySettingsSchema.parse(body);
-    
-    // First, find an existing record
-    const existingSettings = await prisma.anonymitySettings.findFirst();
-    
-    let settings;
-    if (existingSettings) {
-      // Update with absolute minimal fields
-      settings = await prisma.anonymitySettings.update({
-        where: { id: existingSettings.id },
-        data: {
-          minGroupSize: validatedData.minGroupSize,
-          minActiveUsers: validatedData.minActiveUsers,
-          activityThresholdDays: validatedData.activityThresholdDays,
-          combinationLogic: validatedData.combinationLogic,
-          enableGrouping: validatedData.enableGrouping,
-        },
-      });
-    } else {
-      // Create with absolute minimal fields
-      settings = await prisma.anonymitySettings.create({
-        data: {
-          minGroupSize: validatedData.minGroupSize,
-          minActiveUsers: validatedData.minActiveUsers,
-          activityThresholdDays: validatedData.activityThresholdDays,
-          combinationLogic: validatedData.combinationLogic,
-          enableGrouping: validatedData.enableGrouping,
-        },
-      });
-    }
-    
-    return NextResponse.json(settings);
+
+    // Use a Prisma transaction to update or create anonymity settings
+    const settings = await prisma.$transaction(async (prisma) => {
+      const existingSettings = await prisma.anonymitySettings.findFirst();
+
+      if (existingSettings) {
+        // Update existing settings
+        return prisma.anonymitySettings.update({
+          where: { id: existingSettings.id },
+          data: validatedData,
+        });
+      } else {
+        // Create new settings
+        return prisma.anonymitySettings.create({
+          data: validatedData,
+        });
+      }
+    });
+
+    const response: AnonymitySettingsResponse = {
+      id: settings.id,
+      minGroupSize: settings.minGroupSize,
+      minActiveUsers: settings.minActiveUsers,
+      activityThresholdDays: settings.activityThresholdDays,
+      combinationLogic: settings.combinationLogic,
+      enableGrouping: settings.enableGrouping,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('Validation error:', error.errors);
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors }, 
+        { error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
     }
-    
+
     console.error('Error updating anonymity settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to update anonymity settings' }, 
-      { status: 500 }
-    );
+    return handlePrismaError(error);
   }
 }
