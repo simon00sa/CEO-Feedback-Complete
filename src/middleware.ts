@@ -1,35 +1,40 @@
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
-// TODO: Implement middleware for role-based access control
-// This file can be used to protect routes based on user roles.
-// See: https://nextjs.org/docs/app/building-your-application/routing/middleware
+const ADMIN_ROUTES = ['/api/admin/']; // Define routes that require admin access
 
-// Example (needs refinement):
-import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
+// Middleware to check authentication and role-based access
+export async function middleware(req: Request) {
+  const url = new URL(req.url);
 
-export default withAuth(
-  // `withAuth` augments your `Request` with the user's token.
-  function middleware(req) {
-    // Check if the user is trying to access an admin route
-    if (req.nextUrl.pathname.startsWith("/admin")) {
-      // Check if the user has the Admin role
-      if (req.nextauth.token?.role !== "Admin") {
-        // Redirect non-admins trying to access admin routes
-        return NextResponse.redirect(new URL("/")); // Redirect to home page or an unauthorized page
-      }
+  // Check if the request is for an admin route
+  if (ADMIN_ROUTES.some((route) => url.pathname.startsWith(route))) {
+    // Get the session
+    const session = await getServerSession(authOptions);
+
+    // If no session, return Unauthorized
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // Allow the request to proceed if authorized
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token, // User must be logged in
-    },
+
+    // Check if the user has an admin role
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.name !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
   }
-)
 
-// Specify which paths the middleware should apply to
+  // Allow the request to proceed
+  return NextResponse.next();
+}
+
+// Config to apply middleware only for specific routes
 export const config = {
-  matcher: ["/admin/:path*"], // Protect all routes under /admin
+  matcher: '/api/admin/:path*', // Apply middleware to all admin routes
 };
-
