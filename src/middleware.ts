@@ -3,38 +3,51 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
-const ADMIN_ROUTES = ['/api/admin/']; // Define routes that require admin access
+// Define admin route prefix
+const ADMIN_ROUTE_PREFIX = '/api/admin/';
 
-// Middleware to check authentication and role-based access
+/**
+ * Middleware to enforce authentication and authorization for admin routes.
+ * Ensures that only authenticated users with the ADMIN role can access routes under /api/admin/.
+ */
 export async function middleware(req: Request) {
   const url = new URL(req.url);
 
   // Check if the request is for an admin route
-  if (ADMIN_ROUTES.some((route) => url.pathname.startsWith(route))) {
-    // Get the session
-    const session = await getServerSession(authOptions);
+  if (url.pathname.startsWith(ADMIN_ROUTE_PREFIX)) {
+    try {
+      // Retrieve the session using NextAuth
+      const session = await getServerSession(authOptions);
 
-    // If no session, return Unauthorized
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+      // Return 401 Unauthorized if no session is found
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized: No active session' }, { status: 401 });
+      }
 
-    // Check if the user has an admin role
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { role: true },
-    });
+      // Fetch user details from the database
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        include: { role: true },
+      });
 
-    if (!user || user.role?.name !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+      // Check if the user has the ADMIN role
+      if (!user || user.role?.name !== 'ADMIN') {
+        return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+      }
+
+      // Allow the request to proceed if the user is an admin
+      return NextResponse.next();
+    } catch (error) {
+      console.error('Error in admin middleware:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
   }
 
-  // Allow the request to proceed
+  // Allow the request to proceed if it is not an admin route
   return NextResponse.next();
 }
 
-// Config to apply middleware only for specific routes
+// Middleware configuration to apply it only to admin routes
 export const config = {
-  matcher: '/api/admin/:path*', // Apply middleware to all admin routes
+  matcher: '/api/admin/:path*', // Match all routes under /api/admin/
 };
