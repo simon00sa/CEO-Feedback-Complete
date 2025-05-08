@@ -14,11 +14,11 @@ const nextConfig = {
       "node:module": "module",
     };
 
-    // Add externals for server-side dependencies
+    // Prevent server-side dependencies from being bundled
     if (isServer) {
       config.externals = [
         ...config.externals,
-        "nodemailer", // Avoid bundling nodemailer into the server build
+        "nodemailer", // Exclude nodemailer from the server-side bundle
       ];
     }
 
