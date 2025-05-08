@@ -5,11 +5,21 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       "node:fs": "fs",
+      "node:fs/promises": "fs/promises",
       "node:path": "path",
       "node:os": "os",
-      "node:url": "url",
       "node:process": "process",
+      "node:url": "url",
+      "node:child_process": "child_process",
+      "node:module": "module",
     };
+
+    if (isServer) {
+      config.externals = {
+        ...config.externals,
+        "nodemailer": "commonjs nodemailer",
+      };
+    }
 
     return config;
   },
