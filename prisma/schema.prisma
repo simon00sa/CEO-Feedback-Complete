@@ -7,26 +7,26 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Optional but helpful for direct connections
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL") // Optional but helpful for direct connections
   relationMode = "prisma" // This can help with certain connection issues
 }
 
 // Required Models for NextAuth.js
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -55,7 +55,7 @@ model VerificationToken {
 model User {
   id            String    @id @default(cuid())
   name          String?   // Optional, might be set during onboarding
-  email         String    @unique
+  email         String    @unique @index // Added index
   emailVerified DateTime?
   image         String?   // From NextAuth providers if used
   roleId        String?   // Link to Role model
@@ -70,28 +70,31 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   invitations   Invitation[]
+
+  @@index([roleId]) // Added index for foreign key
+  @@index([teamId]) // Added index for foreign key
 }
 
 // Role model (as defined previously)
 model Role {
-  id        String @id @default(cuid())
-  name      String @unique // e.g., "Staff", "Leadership", "Admin"
-  users     User[]
+  id          String       @id @default(cuid())
+  name        String       @unique // e.g., "Staff", "Leadership", "Admin"
+  users       User[]
   invitations Invitation[]
 }
 
 // Invitation model (as defined previously)
 model Invitation {
   id        String   @id @default(cuid())
-  email     String   @unique // Email to send invitation to
+  email     String   @unique @index // Added index
   token     String   @unique @default(cuid()) // Unique token for the invitation link
-  roleId    String   // Role assigned upon registration
+  roleId    String   @index // Added index
   role      Role     @relation(fields: [roleId], references: [id])
   expires   DateTime // When the invitation expires
   used      Boolean  @default(false) // Whether the invitation has been used
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  inviterId String
+  inviterId String   @index // Added index
   inviter   User     @relation(fields: [inviterId], references: [id])
   status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
   orgId     String   // Organization ID
@@ -105,35 +108,35 @@ model Team {
   memberCount     Int      @default(0) // Total members (updated via trigger or job)
   activeUserCount Int      @default(0) // Count of truly active users (updated via job)
   isAnonymous     Boolean  @default(true) // Whether this team meets anonymity threshold (updated via job)
-  parentGroupId   String?  // For hierarchical grouping when needed for anonymity (self-relation? or separate Group model?)
+  parentGroupId   String?  // For hierarchical grouping when needed for anonymity
   lastActiveCheck DateTime @default(now()) // Last time activity/anonymity was checked
   requiresMerging Boolean  @default(false) // Flag when team needs to be merged for anonymity (updated via job)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   members         User[]   // Users belonging to this team
+
+  @@index([parentGroupId]) // Added index
 }
 
 // Feedback model (as defined previously)
 model Feedback {
-  id              String    @id @default(cuid())
-  content         String    @db.Text // The raw feedback content
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // Anonymity: Link to user is optional or handled differently
-  // userId          String?   
-  // user            User?     @relation(fields: [userId], references: [id])
+  id              String         @id @default(cuid())
+  content         String         @db.Text // The raw feedback content
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   // Monitoring & Analysis Fields
   status          FeedbackStatus @default(PENDING) // e.g., PENDING, ANALYZED, FLAGGED, ARCHIVED
-  analysisSummary String?   @db.Text // AI-generated summary for Leadership
-  sentiment       String?   // AI-detected sentiment (e.g., Positive, Negative, Neutral)
-  topics          String[]  // AI-detected topics/keywords
+  analysisSummary String?        @db.Text // AI-generated summary for Leadership
+  sentiment       String?        // AI-detected sentiment (e.g., Positive, Negative, Neutral)
+  topics          String[]       // AI-detected topics/keywords
   
   // Diagnostic Fields (potentially only visible to Admin)
-  submittedFromIP String?   // Store IP for diagnostics (consider privacy implications)
-  userAgent       String?   // Store User Agent for diagnostics
-  processingLog   Json?     // Store logs related to AI processing or errors
+  submittedFromIP String?        // Store IP for diagnostics (consider privacy implications)
+  userAgent       String?        // Store User Agent for diagnostics
+  processingLog   Json?          // Store logs related to AI processing or errors
+
+  @@index([status]) // Added index
 }
 
 enum FeedbackStatus {
