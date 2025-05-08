@@ -1,177 +1,28 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-  output   = "./node_modules/.prisma/client"
-}
-
-datasource db {
-  provider     = "postgresql"
-  url          = env("DATABASE_URL")
-  directUrl    = env("DIRECT_URL") // Optional but helpful for direct connections
-  relationMode = "prisma" // This can help with certain connection issues
-}
-
-// Required Models for NextAuth.js
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-// --- Application Specific Models ---
-
-// Enhanced User model (incorporating feedback)
-model User {
-  id            String       @id @default(cuid())
-  name          String?      // Optional, might be set during onboarding
-  email         String       @unique // Email is unique
-  emailVerified DateTime?
-  image         String?      // From NextAuth providers if used
-  roleId        String?      // Link to Role model
-  role          Role?        @relation(fields: [roleId], references: [id])
-  teamId        String?      // Link to Team model
-  team          Team?        @relation(fields: [teamId], references: [id])
-  lastActive    DateTime?    // Track user activity
-  activityLevel String       @default("LOW") // LOW, MEDIUM, HIGH based on system interaction
-  isActive      Boolean      @default(false) // Set to true once user completes key actions
-  accounts      Account[]
-  sessions      Session[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  invitations   Invitation[]
-
-  @@index([email])  // Index on email field
-  @@index([roleId]) // Index on roleId field
-  @@index([teamId]) // Index on teamId field
-}
-
-// Role model (as defined previously)
-model Role {
-  id          String       @id @default(cuid())
-  name        String       @unique // e.g., "Staff", "Leadership", "Admin"
-  users       User[]
-  invitations Invitation[]
-}
-
-// Invitation model (as defined previously)
 model Invitation {
-  id        String   @id @default(cuid())
-  email     String   @unique // Email is unique
-  token     String   @unique @default(cuid()) // Unique token for the invitation link
-  roleId    String   // Role assigned upon registration
-  role      Role     @relation(fields: [roleId], references: [id])
-  expires   DateTime // When the invitation expires
-  used      Boolean  @default(false) // Whether the invitation has been used
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  inviterId String   
-  inviter   User     @relation(fields: [inviterId], references: [id])
-  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
-  orgId     String   // Organization ID
+  id         String   @id @default(cuid())
+  email      String
+  inviterId  String   // ID of the user who sent the invitation
+  role       Role     @relation(fields: [roleId], references: [id])
+  roleId     String
+  status     String
+  token      String
+  expires    DateTime
+  used       Boolean  @default(false)
+  orgId      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@index([email])     // Index on email field
-  @@index([roleId])    // Index on roleId field
-  @@index([inviterId]) // Index on inviterId field
+  inviter    User     @relation(fields: [inviterId], references: [id])
 }
 
-// Enhanced Team model (incorporating feedback)
-model Team {
-  id              String   @id @default(cuid())
-  name            String   // Actual team/department name
-  displayGroup    String?  // The group name shown in reports (may be different for anonymity)
-  memberCount     Int      @default(0) // Total members (updated via trigger or job)
-  activeUserCount Int      @default(0) // Count of truly active users (updated via job)
-  isAnonymous     Boolean  @default(true) // Whether this team meets anonymity threshold (updated via job)
-  parentGroupId   String?  // For hierarchical grouping when needed for anonymity
-  lastActiveCheck DateTime @default(now()) // Last time activity/anonymity was checked
-  requiresMerging Boolean  @default(false) // Flag when team needs to be merged for anonymity (updated via job)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  members         User[]   // Users belonging to this team
-
-  @@index([parentGroupId]) // Index on parentGroupId field
+model Role {
+  id   String   @id @default(cuid())
+  name String   @unique()
 }
 
-// Feedback model (as defined previously)
-model Feedback {
-  id              String         @id @default(cuid())
-  content         String         @db.Text // The raw feedback content
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  // Monitoring & Analysis Fields
-  status          FeedbackStatus @default(PENDING) // e.g., PENDING, ANALYZED, FLAGGED, ARCHIVED
-  analysisSummary String?        @db.Text // AI-generated summary for Leadership
-  sentiment       String?        // AI-detected sentiment (e.g., Positive, Negative, Neutral)
-  topics          String[]       // AI-detected topics/keywords
-  
-  // Diagnostic Fields (potentially only visible to Admin)
-  submittedFromIP String?        // Store IP for diagnostics (consider privacy implications)
-  userAgent       String?        // Store User Agent for diagnostics
-  processingLog   Json?          // Store logs related to AI processing or errors
-
-  @@index([status]) // Index on status field
-}
-
-enum FeedbackStatus {
-  PENDING    // Newly submitted, awaiting analysis
-  ANALYZED   // AI analysis complete
-  FLAGGED    // Needs manual review (e.g., policy violation)
-  ARCHIVED   // Processed and archived
-}
-
-// Setting model (incorporating feedback)
-model Setting {
-  key       String   @id // e.g., "appName", "theme", "anonymityMinGroupSize"
-  value     Json     // Store value as JSON to allow flexibility (string, number, boolean, object)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// AnonymitySettings model (incorporating feedback)
-model AnonymitySettings {
-  id                        String   @id @default(cuid()) // Use a single record for global settings
-  minGroupSize              Int      @default(8) // Minimum people for separate reporting
-  minActiveUsers            Int      @default(5) // Minimum ACTIVE users needed
-  activityThresholdDays     Int      @default(30) // Days to consider a user "active"
-  combinationLogic          String   @default("DEPARTMENT") // How to combine small teams (e.g., DEPARTMENT, HIERARCHY, RANDOM)
-  enableGrouping            Boolean  @default(true)
-  activityRequirements      Json?    // What constitutes "activity" (e.g., { login: true, feedbackSubmission: true })
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
-  enableAnonymousComments   Boolean  @default(true)
-  enableAnonymousVotes      Boolean  @default(true)
-  enableAnonymousAnalytics  Boolean  @default(false)
-  anonymityLevel            String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+model User {
+  id    String   @id @default(cuid())
+  name  String
+  email String   @unique()
+  roles Role[]
 }
