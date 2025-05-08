@@ -53,26 +53,27 @@ model VerificationToken {
 
 // Enhanced User model (incorporating feedback)
 model User {
-  id            String    @id @default(cuid())
-  name          String?   // Optional, might be set during onboarding
-  email         String    @unique @index // Added index
+  id            String       @id @default(cuid())
+  name          String?      // Optional, might be set during onboarding
+  email         String       @unique // Email is unique
   emailVerified DateTime?
-  image         String?   // From NextAuth providers if used
-  roleId        String?   // Link to Role model
-  role          Role?     @relation(fields: [roleId], references: [id])
-  teamId        String?   // Link to Team model
-  team          Team?     @relation(fields: [teamId], references: [id])
-  lastActive    DateTime? // Track user activity
-  activityLevel String    @default("LOW") // LOW, MEDIUM, HIGH based on system interaction
-  isActive      Boolean   @default(false) // Set to true once user completes key actions
+  image         String?      // From NextAuth providers if used
+  roleId        String?      // Link to Role model
+  role          Role?        @relation(fields: [roleId], references: [id])
+  teamId        String?      // Link to Team model
+  team          Team?        @relation(fields: [teamId], references: [id])
+  lastActive    DateTime?    // Track user activity
+  activityLevel String       @default("LOW") // LOW, MEDIUM, HIGH based on system interaction
+  isActive      Boolean      @default(false) // Set to true once user completes key actions
   accounts      Account[]
   sessions      Session[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   invitations   Invitation[]
 
-  @@index([roleId]) // Added index for foreign key
-  @@index([teamId]) // Added index for foreign key
+  @@index([email])  // Index on email field
+  @@index([roleId]) // Index on roleId field
+  @@index([teamId]) // Index on teamId field
 }
 
 // Role model (as defined previously)
@@ -86,18 +87,22 @@ model Role {
 // Invitation model (as defined previously)
 model Invitation {
   id        String   @id @default(cuid())
-  email     String   @unique @index // Added index
+  email     String   @unique // Email is unique
   token     String   @unique @default(cuid()) // Unique token for the invitation link
-  roleId    String   @index // Added index
+  roleId    String   // Role assigned upon registration
   role      Role     @relation(fields: [roleId], references: [id])
   expires   DateTime // When the invitation expires
   used      Boolean  @default(false) // Whether the invitation has been used
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  inviterId String   @index // Added index
+  inviterId String   
   inviter   User     @relation(fields: [inviterId], references: [id])
   status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
   orgId     String   // Organization ID
+
+  @@index([email])     // Index on email field
+  @@index([roleId])    // Index on roleId field
+  @@index([inviterId]) // Index on inviterId field
 }
 
 // Enhanced Team model (incorporating feedback)
@@ -115,7 +120,7 @@ model Team {
   updatedAt       DateTime @updatedAt
   members         User[]   // Users belonging to this team
 
-  @@index([parentGroupId]) // Added index
+  @@index([parentGroupId]) // Index on parentGroupId field
 }
 
 // Feedback model (as defined previously)
@@ -136,7 +141,7 @@ model Feedback {
   userAgent       String?        // Store User Agent for diagnostics
   processingLog   Json?          // Store logs related to AI processing or errors
 
-  @@index([status]) // Added index
+  @@index([status]) // Index on status field
 }
 
 enum FeedbackStatus {
