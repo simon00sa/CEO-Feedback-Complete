@@ -11,28 +11,14 @@ const InvitationSchema = z.object({
   orgId: z.string(),
 });
 
-// Define the type for the response
-type InvitationResponse = {
-  success: boolean;
-  invitation: {
-    id: string;
-    email: string;
-    role: string;
-    status: string;
-    expires: Date;
-    used: boolean;
-  };
-};
-
-// Centralized utility to generate a secure token
+// Generate a secure token
 function generateToken(): string {
   return randomBytes(32).toString('hex');
 }
 
-// POST /api/admin/invitations - For creating invitations
+// POST /api/admin/invitations - Create an invitation
 export async function POST(req: NextRequest) {
   try {
-    // Parse and validate the request body
     const body = await req.json();
     const validatedData = InvitationSchema.parse(body);
 
@@ -69,29 +55,16 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    const response: InvitationResponse = {
-      success: true,
-      invitation: {
-        id: invitation.id,
-        email: invitation.email,
-        role: invitation.role.name,
-        status: invitation.status,
-        expires: invitation.expires,
-        used: invitation.used,
-      },
-    };
-
-    return NextResponse.json(response);
+    return NextResponse.json({ success: true, invitation });
   } catch (error) {
     console.error('Error creating invitation:', error);
     return handlePrismaError(error);
   }
 }
 
-// GET /api/admin/invitations - Get all invitations
+// GET /api/admin/invitations - Get list of invitations
 export async function GET() {
   try {
-    // Fetch all invitations with optimized query
     const invitations = await prisma.invitation.findMany({
       select: {
         id: true,
