@@ -61,7 +61,7 @@
     "next": "15.1.4",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
-    "nodemailer": "^6.10.2",
+    "nodemailer": "^7.0.3",
     "openai": "^4.96.2",
     "pg": "^8.15.6",
     "prisma": "^6.7.0",
@@ -78,7 +78,7 @@
     "zod": "^3.24.2"
   },
   "resolutions": {
-    "nodemailer": "^6.10.2"
+    "nodemailer": "^7.0.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250409.0",
