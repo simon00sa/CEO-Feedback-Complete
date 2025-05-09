@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { getCurrentUser } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/utils';
@@ -56,18 +57,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create invitation - using inviterId instead of inviter relationship
+    // Create invitation - using inviterId directly with unchecked input type
     const invitation = await prisma.invitation.create({
       data: {
         email: validatedData.email,
         roleId: role.id,
-        inviterId: currentUser.id, // Use inviterId directly instead of the relationship
+        inviterId: currentUser.id,
         status: 'PENDING',
         token: generateToken(),
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
         orgId: validatedData.orgId,
         used: false,
-      },
+      } as Prisma.InvitationUncheckedCreateInput, // Use unchecked input type to bypass strict type checking
     });
 
     return NextResponse.json(invitation, { status: 201 });
