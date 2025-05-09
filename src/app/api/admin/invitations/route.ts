@@ -57,18 +57,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create invitation - using inviterId directly with unchecked input type
+    // Create invitation - using inviterId instead of inviter relationship
     const invitation = await prisma.invitation.create({
       data: {
         email: validatedData.email,
         roleId: role.id,
-        inviterId: currentUser.id,
+        inviterId: currentUser.id, // Use inviterId directly instead of the relationship
         status: 'PENDING',
         token: generateToken(),
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
         orgId: validatedData.orgId,
         used: false,
-      } as Prisma.InvitationUncheckedCreateInput, // Use unchecked input type to bypass strict type checking
+      } as Prisma.InvitationUncheckedCreateInput, // Use unchecked input type
     });
 
     return NextResponse.json(invitation, { status: 201 });
@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+// Remove unused req parameter from GET method
+export async function GET() {
   try {
     // Only allow admins to list invitations
     const currentUser = await getCurrentUser();
