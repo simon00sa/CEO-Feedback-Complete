@@ -56,12 +56,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create invitation
+    // Create invitation - using inviterId instead of inviter relationship
     const invitation = await prisma.invitation.create({
       data: {
         email: validatedData.email,
-        role: { connect: { id: role.id } },
-        inviter: { connect: { id: currentUser.id } }, // Connect to the current user
+        roleId: role.id,
+        inviterId: currentUser.id, // Use inviterId directly instead of the relationship
         status: 'PENDING',
         token: generateToken(),
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
@@ -75,6 +75,99 @@ export async function POST(req: NextRequest) {
     console.error('Error creating invitation:', error);
     return NextResponse.json(
       { error: 'Failed to create invitation' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    // Only allow admins to list invitations
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const isAdmin = await isUserAdmin(currentUser.id);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Fetch all invitations
+    const invitations = await prisma.invitation.findMany({
+      include: {
+        role: true,
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return NextResponse.json(invitations);
+  } catch (error) {
+    console.error('Error fetching invitations:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch invitations' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    // Only allow admins to delete invitations
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const isAdmin = await isUserAdmin(currentUser.id);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Get the invitation ID from the query parameters
+    const url = new URL(req.url);
+    const id = url.searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Invitation ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if invitation exists
+    const invitation = await prisma.invitation.findUnique({
+      where: { id },
+    });
+
+    if (!invitation) {
+      return NextResponse.json(
+        { error: 'Invitation not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the invitation
+    await prisma.invitation.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting invitation:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete invitation' },
       { status: 500 }
     );
   }
