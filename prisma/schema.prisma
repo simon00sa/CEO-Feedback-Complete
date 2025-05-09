@@ -58,8 +58,8 @@ model User {
   email         String       @unique // Email is unique
   emailVerified DateTime?
   image         String?      // From NextAuth providers if used
-  roleId        String?      // Link to Role model
-  role          Role?        @relation(fields: [roleId], references: [id])
+  roleId        String?      // Link to Role model (for backward compatibility)
+  role          Role?        @relation(fields: [roleId], references: [id], name: "primaryRole")
   teamId        String?      // Link to Team model
   team          Team?        @relation(fields: [teamId], references: [id])
   lastActive    DateTime?    // Track user activity
@@ -70,6 +70,7 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   invitations   Invitation[] // Invitations sent by this user
+  roles         Role[]       @relation("userRoles") // Many-to-many relationship with roles
 
   @@index([email])  // Index on email field
   @@index([roleId]) // Index on roleId field
@@ -80,8 +81,9 @@ model User {
 model Role {
   id          String       @id @default(cuid())
   name        String       @unique // e.g., "Staff", "Leadership", "Admin"
-  users       User[]
+  users       User[]       @relation("primaryRole") // For backward compatibility
   invitations Invitation[]
+  userRoles   User[]       @relation("userRoles") // Many-to-many relationship with users
 }
 
 // Invitation model
