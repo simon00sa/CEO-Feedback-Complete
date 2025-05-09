@@ -1,86 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { z } from 'zod';
-import { handlePrismaError } from '@/lib/utils';
-import { randomBytes } from 'crypto';
+import prisma from '@/lib/prisma';
+import { randomUUID } from 'crypto';
+import { getCurrentUser } from '@/lib/auth';
+import { isUserAdmin } from '@/lib/utils';
 
-// Define the schema for the request body
-const InvitationSchema = z.object({
+// Define validation schema
+const invitationSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['ADMIN', 'LEADERSHIP', 'STAFF']),
-  orgId: z.string(),
+  roleId: z.string().min(1),
+  orgId: z.string().min(1),
 });
 
-// Generate a secure token
-function generateToken(): string {
-  return randomBytes(32).toString('hex');
+// Function to generate a unique token
+function generateToken() {
+  return randomUUID();
 }
 
-// POST /api/admin/invitations - Create an invitation
 export async function POST(req: NextRequest) {
   try {
+    // Only allow admins to create invitations
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const isAdmin = await isUserAdmin(currentUser.id);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Parse and validate request body
     const body = await req.json();
-    const validatedData = InvitationSchema.parse(body);
+    const result = invitationSchema.safeParse(body);
+    
+    if (!result.success) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: result.error.format() },
+        { status: 400 }
+      );
+    }
 
-    // Use a Prisma transaction to ensure atomic operations
-    const invitation = await prisma.$transaction(async (prisma) => {
-      const role = await prisma.role.findUnique({
-        where: { name: validatedData.role },
-        select: { id: true },
-      });
+    const validatedData = result.data;
 
-      if (!role) {
-        throw new Error('Role not found');
-      }
-
-      return prisma.invitation.create({
-        data: {
-          email: validatedData.email,
-          role: { connect: { id: role.id } },
-          inviterId: 'admin-user-id', // Middleware ensures only admins can access
-          status: 'PENDING',
-          token: generateToken(),
-          expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-          used: false,
-          orgId: validatedData.orgId,
-        },
-        select: {
-          id: true,
-          email: true,
-          status: true,
-          expires: true,
-          used: true,
-          role: { select: { name: true } },
-        },
-      });
+    // Check if role exists
+    const role = await prisma.role.findUnique({
+      where: { id: validatedData.roleId },
     });
 
-    return NextResponse.json({ success: true, invitation });
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Role not found' },
+        { status: 404 }
+      );
+    }
+
+    // Create invitation
+    const invitation = await prisma.invitation.create({
+      data: {
+        email: validatedData.email,
+        role: { connect: { id: role.id } },
+        inviter: { connect: { id: currentUser.id } }, // Connect to the current user
+        status: 'PENDING',
+        token: generateToken(),
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        orgId: validatedData.orgId,
+        used: false,
+      },
+    });
+
+    return NextResponse.json(invitation, { status: 201 });
   } catch (error) {
     console.error('Error creating invitation:', error);
-    return handlePrismaError(error);
-  }
-}
-
-// GET /api/admin/invitations - Get list of invitations
-export async function GET() {
-  try {
-    const invitations = await prisma.invitation.findMany({
-      select: {
-        id: true,
-        email: true,
-        status: true,
-        expires: true,
-        used: true,
-        role: { select: { name: true } },
-        inviter: { select: { id: true, name: true, email: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return NextResponse.json(invitations);
-  } catch (error) {
-    console.error('Error fetching invitations:', error);
-    return handlePrismaError(error);
+    return NextResponse.json(
+      { error: 'Failed to create invitation' },
+      { status: 500 }
+    );
   }
 }
