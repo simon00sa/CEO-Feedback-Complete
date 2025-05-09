@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-// Create a new Prisma client instance
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {
@@ -16,10 +13,14 @@ export async function GET() {
       WHERE table_schema = 'public'
     `;
     
+    // Check if the Role table has any data
+    const roles = await prisma.role.findMany();
+    
     return NextResponse.json({
       success: true,
       connection: connectionTest,
       tables: tables,
+      roles: roles,
       message: "Database connection successful"
     });
   } catch (error) {
@@ -27,7 +28,7 @@ export async function GET() {
     
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "Failed to connect to the database"
     }, { status: 500 });
   }
