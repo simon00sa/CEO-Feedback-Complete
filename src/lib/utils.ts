@@ -1,28 +1,29 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-import { NextResponse } from 'next/server';
-import { getServerSession, Session } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { NextResponse } from "next/server";
+import { getServerSession, Session } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // Existing UI utility
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 // New API utilities
+
 // Centralized Prisma error handler
 export function handlePrismaError(error: unknown): NextResponse {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === 'P2002') {
+    if (error.code === "P2002") {
       return NextResponse.json(
-        { error: 'Unique constraint violation' },
+        { error: "Unique constraint violation" },
         { status: 409 }
       );
     }
   }
-  return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
 // Check if the current session belongs to an admin
@@ -34,5 +35,21 @@ export async function ensureAdmin(session: Session | null): Promise<boolean> {
     where: { id: session.user.id },
     include: { role: true },
   });
-  return user?.role?.name === 'ADMIN';
+  return user?.role?.name === "ADMIN";
+}
+
+// Utility to check if a user is an admin by user ID
+export async function isUserAdmin(userId: string): Promise<boolean> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    // Check if user has the "Admin" role
+    return user?.role?.name === "Admin";
+  } catch (error) {
+    console.error("Error checking if user is admin:", error);
+    return false;
+  }
 }
