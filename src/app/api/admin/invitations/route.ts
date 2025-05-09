@@ -96,24 +96,46 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Fetch all invitations
+    // Fetch all invitations - Modified to use only the role relation
     const invitations = await prisma.invitation.findMany({
       include: {
         role: true,
-        inviter: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        // Removed the inviter relation for now
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
 
-    return NextResponse.json(invitations);
+    // If needed, we can fetch related user data separately
+    const invitationsWithInviters = await Promise.all(
+      invitations.map(async (invitation) => {
+        // Try to fetch the inviter user if it exists
+        let inviter = null;
+        try {
+          if (invitation.inviterId) {
+            inviter = await prisma.user.findUnique({
+              where: { id: invitation.inviterId },
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching inviter for invitation ${invitation.id}:`, error);
+        }
+        
+        // Return the invitation with the inviter data
+        return {
+          ...invitation,
+          inviter,
+        };
+      })
+    );
+
+    return NextResponse.json(invitationsWithInviters);
   } catch (error) {
     console.error('Error fetching invitations:', error);
     return NextResponse.json(
