@@ -1,5 +1,5 @@
 {
-  "name": "anonymous-feedback-app", 
+  "name": "anonymous-feedback-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "build": "prisma generate && next build --no-lint",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma migrate deploy && prisma generate", // Updated postinstall script
+    "postinstall": "prisma migrate deploy && prisma generate",
     "prisma:seed": "prisma db seed",
     "build:worker": "opennextjs-cloudflare",
     "preview": "opennextjs-cloudflare && wrangler dev",
