@@ -1,211 +1,179 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
-import { randomUUID } from 'crypto';
-import { getCurrentUser } from '@/lib/auth';
-import { isUserAdmin } from '@/lib/utils';
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Define validation schema
-const invitationSchema = z.object({
-  email: z.string().email(),
-  roleId: z.string().min(1),
-  orgId: z.string().min(1),
-});
-
-// Function to generate a unique token
-function generateToken() {
-  return randomUUID();
+generator client {
+  provider = "prisma-client-js"
+  output   = "./node_modules/.prisma/client"
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    // Only allow admins to create invitations
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const isAdmin = await isUserAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Parse and validate request body
-    const body = await req.json();
-    const result = invitationSchema.safeParse(body);
-    
-    if (!result.success) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: result.error.format() },
-        { status: 400 }
-      );
-    }
-
-    const validatedData = result.data;
-
-    // Check if role exists
-    const role = await prisma.role.findUnique({
-      where: { id: validatedData.roleId },
-    });
-
-    if (!role) {
-      return NextResponse.json(
-        { error: 'Role not found' },
-        { status: 404 }
-      );
-    }
-
-    // Create invitation - using inviterId instead of inviter relationship
-    const invitation = await prisma.invitation.create({
-      data: {
-        email: validatedData.email,
-        roleId: role.id,
-        inviterId: currentUser.id, // Use inviterId directly instead of the relationship
-        status: 'PENDING',
-        token: generateToken(),
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        orgId: validatedData.orgId,
-        used: false,
-      } as Prisma.InvitationUncheckedCreateInput, // Use unchecked input type
-    });
-
-    return NextResponse.json(invitation, { status: 201 });
-  } catch (error) {
-    console.error('Error creating invitation:', error);
-    return NextResponse.json(
-      { error: 'Failed to create invitation' },
-      { status: 500 }
-    );
-  }
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL") // Optional but helpful for direct connections
+  relationMode = "prisma" // This can help with certain connection issues
 }
 
-// Using select instead of include for more precise control
-export async function GET() {
-  try {
-    // Only allow admins to list invitations
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+// Required Models for NextAuth.js
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
-    // Check if user is admin
-    const isAdmin = await isUserAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    // Fetch all invitations using select
-    const invitations = await prisma.invitation.findMany({
-      select: {
-        id: true,
-        email: true,
-        token: true,
-        roleId: true,
-        expires: true,
-        used: true,
-        createdAt: true,
-        updatedAt: true,
-        inviterId: true, // Now explicitly selecting inviterId
-        status: true,
-        orgId: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    // Fetch inviter data separately
-    const invitationsWithInviters = await Promise.all(
-      invitations.map(async (invitation) => {
-        let inviter = null;
-        if (invitation.inviterId) {
-          try {
-            inviter = await prisma.user.findUnique({
-              where: { id: invitation.inviterId },
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            });
-          } catch (error) {
-            console.error(`Error fetching inviter for invitation ${invitation.id}:`, error);
-          }
-        }
-        
-        return {
-          ...invitation,
-          inviter,
-        };
-      })
-    );
-
-    return NextResponse.json(invitationsWithInviters);
-  } catch (error) {
-    console.error('Error fetching invitations:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch invitations' },
-      { status: 500 }
-    );
-  }
+  @@unique([provider, providerAccountId])
 }
 
-export async function DELETE(req: NextRequest) {
-  try {
-    // Only allow admins to delete invitations
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
-    // Check if user is admin
-    const isAdmin = await isUserAdmin(currentUser.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
-    // Get the invitation ID from the query parameters
-    const url = new URL(req.url);
-    const id = url.searchParams.get('id');
-    
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Invitation ID is required' },
-        { status: 400 }
-      );
-    }
+  @@unique([identifier, token])
+}
 
-    // Check if invitation exists
-    const invitation = await prisma.invitation.findUnique({
-      where: { id },
-    });
+// --- Application Specific Models ---
 
-    if (!invitation) {
-      return NextResponse.json(
-        { error: 'Invitation not found' },
-        { status: 404 }
-      );
-    }
+// Enhanced User model
+model User {
+  id            String       @id @default(cuid())
+  name          String?      // Optional, might be set during onboarding
+  email         String       @unique // Email is unique
+  emailVerified DateTime?
+  image         String?      // From NextAuth providers if used
+  roleId        String?      // Link to Role model (for backward compatibility)
+  role          Role?        @relation(fields: [roleId], references: [id], name: "primaryRole")
+  teamId        String?      // Link to Team model
+  team          Team?        @relation(fields: [teamId], references: [id])
+  lastActive    DateTime?    // Track user activity
+  activityLevel String       @default("LOW") // LOW, MEDIUM, HIGH based on system interaction
+  isActive      Boolean      @default(false) // Set to true once user completes key actions
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  invitations   Invitation[] // Invitations sent by this user
+  roles         Role[]       @relation("userRoles") // Many-to-many relationship with roles
 
-    // Delete the invitation
-    await prisma.invitation.delete({
-      where: { id },
-    });
+  @@index([email])  // Index on email field
+  @@index([roleId]) // Index on roleId field
+  @@index([teamId]) // Index on teamId field
+}
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting invitation:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete invitation' },
-      { status: 500 }
-    );
-  }
+// Role model
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique // e.g., "Staff", "Leadership", "Admin"
+  users       User[]       @relation("primaryRole") // For backward compatibility
+  invitations Invitation[]
+  userRoles   User[]       @relation("userRoles") // Many-to-many relationship with users
+}
+
+// Invitation model
+model Invitation {
+  id        String   @id @default(cuid())
+  email     String   // Email address of the invitee
+  token     String   @unique @default(cuid()) // Unique token for the invitation link
+  roleId    String   // Role assigned upon registration
+  role      Role     @relation(fields: [roleId], references: [id])
+  expires   DateTime // When the invitation expires
+  used      Boolean  @default(false) // Whether the invitation has been used
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  inviterId String   // ID of the user who sent the invitation
+  inviter   User     @relation(fields: [inviterId], references: [id])
+  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  orgId     String   // Organization ID
+
+  @@index([email])     // Index on email field
+  @@index([roleId])    // Index on roleId field
+  @@index([inviterId]) // Index on inviterId field
+}
+
+// Enhanced Team model
+model Team {
+  id              String   @id @default(cuid())
+  name            String   // Actual team/department name
+  displayGroup    String?  // The group name shown in reports (may be different for anonymity)
+  memberCount     Int      @default(0) // Total members (updated via trigger or job)
+  activeUserCount Int      @default(0) // Count of truly active users (updated via job)
+  isAnonymous     Boolean  @default(true) // Whether this team meets anonymity threshold (updated via job)
+  parentGroupId   String?  // For hierarchical grouping when needed for anonymity
+  lastActiveCheck DateTime @default(now()) // Last time activity/anonymity was checked
+  requiresMerging Boolean  @default(false) // Flag when team needs to be merged for anonymity (updated via job)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  members         User[]   // Users belonging to this team
+
+  @@index([parentGroupId]) // Index on parentGroupId field
+}
+
+// Feedback model
+model Feedback {
+  id              String         @id @default(cuid())
+  content         String         @db.Text // The raw feedback content
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Monitoring & Analysis Fields
+  status          FeedbackStatus @default(PENDING) // e.g., PENDING, ANALYZED, FLAGGED, ARCHIVED
+  analysisSummary String?        @db.Text // AI-generated summary for Leadership
+  sentiment       String?        // AI-detected sentiment (e.g., Positive, Negative, Neutral)
+  topics          String[]       // AI-detected topics/keywords
+  
+  // Diagnostic Fields (potentially only visible to Admin)
+  submittedFromIP String?        // Store IP for diagnostics (consider privacy implications)
+  userAgent       String?        // Store User Agent for diagnostics
+  processingLog   Json?          // Store logs related to AI processing or errors
+
+  @@index([status]) // Index on status field
+}
+
+enum FeedbackStatus {
+  PENDING    // Newly submitted, awaiting analysis
+  ANALYZED   // AI analysis complete
+  FLAGGED    // Needs manual review (e.g., policy violation)
+  ARCHIVED   // Processed and archived
+}
+
+// Setting model
+model Setting {
+  key       String   @id // e.g., "appName", "theme", "anonymityMinGroupSize"
+  value     Json     // Store value as JSON to allow flexibility (string, number, boolean, object)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// AnonymitySettings model
+model AnonymitySettings {
+  id                        String   @id @default(cuid()) // Use a single record for global settings
+  minGroupSize              Int      @default(8) // Minimum people for separate reporting
+  minActiveUsers            Int      @default(5) // Minimum ACTIVE users needed
+  activityThresholdDays     Int      @default(30) // Days to consider a user "active"
+  combinationLogic          String   @default("DEPARTMENT") // How to combine small teams (e.g., DEPARTMENT, HIERARCHY, RANDOM)
+  enableGrouping            Boolean  @default(true)
+  activityRequirements      Json?    // What constitutes "activity" (e.g., { login: true, feedbackSubmission: true })
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  enableAnonymousComments   Boolean  @default(true)
+  enableAnonymousVotes      Boolean  @default(true)
+  enableAnonymousAnalytics  Boolean  @default(false)
+  anonymityLevel            String   @default("MEDIUM") // LOW, MEDIUM, HIGH
 }
