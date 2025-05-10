@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     }
     
     // Check if user has permission to view analytics
-    if (!['executive', 'admin'].includes(user.role)) {
+    // Fix: Access the role.name property instead of using role directly
+    if (!['executive', 'admin'].includes(user.role?.name || '')) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
