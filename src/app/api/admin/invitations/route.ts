@@ -12,6 +12,50 @@ const invitationSchema = z.object({
   orgId: z.string().min(1),
 });
 
+// Type definition for raw SQL query results
+type InvitationQueryResult = {
+  id: string;
+  email: string;
+  roleId: string;
+  inviterId: string;
+  status: string;
+  token: string;
+  expires: Date;
+  orgId: string;
+  used: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  role_id: string | null;
+  role_name: string | null;
+  inviter_id: string | null;
+  inviter_name: string | null;
+  inviter_email: string | null;
+};
+
+// Type for the formatted response
+type FormattedInvitation = {
+  id: string;
+  email: string;
+  roleId: string;
+  inviterId: string;
+  status: string;
+  token: string;
+  expires: Date;
+  orgId: string;
+  used: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  role: {
+    id: string;
+    name: string;
+  } | null;
+  inviter: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+};
+
 // Function to generate a unique token
 function generateToken() {
   return randomUUID();
@@ -57,7 +101,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Create invitation - using raw query to bypass type issues
-    const invitation = await prisma.$queryRaw`
+    const [invitation] = await prisma.$queryRaw<Array<{
+      id: string;
+      email: string;
+      roleId: string;
+      inviterId: string;
+      status: string;
+      token: string;
+      expires: Date;
+      orgId: string;
+      used: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }>>`
       INSERT INTO "Invitation" (id, email, "roleId", "inviterId", status, token, expires, "orgId", used, "createdAt", "updatedAt")
       VALUES (${randomUUID()}, ${validatedData.email}, ${role.id}, ${currentUser.id}, 'PENDING', ${generateToken()}, ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}, ${validatedData.orgId}, false, ${new Date()}, ${new Date()})
       RETURNING *`;
@@ -87,8 +143,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Use raw SQL to avoid Prisma type issues
-    const invitations = await prisma.$queryRaw`
+    // Use raw SQL to avoid Prisma type issues - now properly typed!
+    const invitations: InvitationQueryResult[] = await prisma.$queryRaw`
       SELECT 
         i.*,
         r.id as role_id,
@@ -103,7 +159,7 @@ export async function GET() {
     `;
 
     // Transform the result to match our expected structure
-    const formattedInvitations = invitations.map((inv: any) => ({
+    const formattedInvitations: FormattedInvitation[] = invitations.map((inv) => ({
       id: inv.id,
       email: inv.email,
       roleId: inv.roleId,
@@ -115,14 +171,14 @@ export async function GET() {
       used: inv.used,
       createdAt: inv.createdAt,
       updatedAt: inv.updatedAt,
-      role: {
+      role: inv.role_id ? {
         id: inv.role_id,
-        name: inv.role_name,
-      },
+        name: inv.role_name!,
+      } : null,
       inviter: inv.inviter_id ? {
         id: inv.inviter_id,
         name: inv.inviter_name,
-        email: inv.inviter_email,
+        email: inv.inviter_email!,
       } : null,
     }));
 
@@ -161,12 +217,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Use raw SQL to ensure it works
-    const result = await prisma.$queryRaw`
+    // Use raw SQL to ensure it works - properly typed
+    const result: Array<{ id: string }> = await prisma.$queryRaw`
       DELETE FROM "Invitation" WHERE id = ${id}
-      RETURNING *`;
+      RETURNING id`;
     
-    if (!result) {
+    if (!result || result.length === 0) {
       return NextResponse.json(
         { error: 'Invitation not found' },
         { status: 404 }
