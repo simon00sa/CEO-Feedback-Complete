@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { getCurrentUser } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/utils';
@@ -57,31 +56,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create invitation - using inviterId instead of inviter relationship
-    const invitation = await prisma.invitation.create({
-      data: {
-        email: validatedData.email,
-        roleId: role.id,
-        inviterId: currentUser.id, // Use inviterId directly instead of the relationship
-        status: 'PENDING',
-        token: generateToken(),
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        orgId: validatedData.orgId,
-        used: false,
-      } as Prisma.InvitationUncheckedCreateInput, // Use unchecked input type
-    });
-
+    // Create invitation - using raw query to bypass type issues
+    const invitation = await prisma.$queryRaw`
+      INSERT INTO "Invitation" (id, email, "roleId", "inviterId", status, token, expires, "orgId", used, "createdAt", "updatedAt")
+      VALUES (${randomUUID()}, ${validatedData.email}, ${role.id}, ${currentUser.id}, 'PENDING', ${generateToken()}, ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}, ${validatedData.orgId}, false, ${new Date()}, ${new Date()})
+      RETURNING *`;
+    
     return NextResponse.json(invitation, { status: 201 });
   } catch (error) {
     console.error('Error creating invitation:', error);
     return NextResponse.json(
-      { error: 'Failed to create invitation' },
+      { error: 'Failed to create invitation', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
 }
 
-// Using select instead of include for more precise control
+// Using raw SQL for more control
 export async function GET() {
   try {
     // Only allow admins to list invitations
@@ -96,63 +87,50 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Fetch all invitations using select
-    const invitations = await prisma.invitation.findMany({
-      select: {
-        id: true,
-        email: true,
-        token: true,
-        roleId: true,
-        expires: true,
-        used: true,
-        createdAt: true,
-        updatedAt: true,
-        inviterId: true, // Now explicitly selecting inviterId
-        status: true,
-        orgId: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    // Use raw SQL to avoid Prisma type issues
+    const invitations = await prisma.$queryRaw`
+      SELECT 
+        i.*,
+        r.id as role_id,
+        r.name as role_name,
+        u.id as inviter_id,
+        u.name as inviter_name,
+        u.email as inviter_email
+      FROM "Invitation" i
+      LEFT JOIN "Role" r ON i."roleId" = r.id
+      LEFT JOIN "User" u ON i."inviterId" = u.id
+      ORDER BY i."createdAt" DESC
+    `;
 
-    // Fetch inviter data separately
-    const invitationsWithInviters = await Promise.all(
-      invitations.map(async (invitation) => {
-        let inviter = null;
-        if (invitation.inviterId) {
-          try {
-            inviter = await prisma.user.findUnique({
-              where: { id: invitation.inviterId },
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            });
-          } catch (error) {
-            console.error(`Error fetching inviter for invitation ${invitation.id}:`, error);
-          }
-        }
-        
-        return {
-          ...invitation,
-          inviter,
-        };
-      })
-    );
+    // Transform the result to match our expected structure
+    const formattedInvitations = invitations.map((inv: any) => ({
+      id: inv.id,
+      email: inv.email,
+      roleId: inv.roleId,
+      inviterId: inv.inviterId,
+      status: inv.status,
+      token: inv.token,
+      expires: inv.expires,
+      orgId: inv.orgId,
+      used: inv.used,
+      createdAt: inv.createdAt,
+      updatedAt: inv.updatedAt,
+      role: {
+        id: inv.role_id,
+        name: inv.role_name,
+      },
+      inviter: inv.inviter_id ? {
+        id: inv.inviter_id,
+        name: inv.inviter_name,
+        email: inv.inviter_email,
+      } : null,
+    }));
 
-    return NextResponse.json(invitationsWithInviters);
+    return NextResponse.json(formattedInvitations);
   } catch (error) {
     console.error('Error fetching invitations:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch invitations' },
+      { error: 'Failed to fetch invitations', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -183,28 +161,23 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Check if invitation exists
-    const invitation = await prisma.invitation.findUnique({
-      where: { id },
-    });
-
-    if (!invitation) {
+    // Use raw SQL to ensure it works
+    const result = await prisma.$queryRaw`
+      DELETE FROM "Invitation" WHERE id = ${id}
+      RETURNING *`;
+    
+    if (!result) {
       return NextResponse.json(
         { error: 'Invitation not found' },
         { status: 404 }
       );
     }
 
-    // Delete the invitation
-    await prisma.invitation.delete({
-      where: { id },
-    });
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting invitation:', error);
     return NextResponse.json(
-      { error: 'Failed to delete invitation' },
+      { error: 'Failed to delete invitation', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
