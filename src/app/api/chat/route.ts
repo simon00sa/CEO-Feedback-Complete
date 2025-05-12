@@ -83,6 +83,14 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate conversation format
+    if (conversation !== undefined && !Array.isArray(conversation)) {
+      return NextResponse.json(
+        { error: 'Invalid conversation format' },
+        { status: 400 }
+      );
+    }
+    
     // Process message with AI (Note: You may need to implement AI functionality)
     // For now, let's create a basic response
     const aiResult = {
@@ -115,7 +123,9 @@ export async function POST(request: NextRequest) {
     
     // Check if this is the final message in the conversation
     let systemMessage: SystemMessage | null = null;
-    if (conversation?.length >= 6) {
+    
+    // Safely check conversation length
+    if (Array.isArray(conversation) && conversation.length >= 6) {
       // For now, let's skip anonymization and just store the feedback
       const anonymizedText = message; // TODO: Implement actual anonymization
       
