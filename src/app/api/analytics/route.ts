@@ -3,19 +3,17 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { JsonValue } from '@prisma/client/runtime/library';
+import { $Enums } from '@prisma/client'; // Import Prisma's enums
 
-// Define the FeedbackStatus type if not already defined elsewhere
-type FeedbackStatus = 'PENDING' | 'PROCESSED' | 'PUBLISHED' | 'ARCHIVED';
-
-// Define the complete FeedbackItem type to match your Prisma schema
+// Define the FeedbackItem type using Prisma's enums
 type FeedbackItem = {
   id: string;
   content: string;
   createdAt: Date;
   updatedAt: Date;
-  status: FeedbackStatus;
+  status: $Enums.FeedbackStatus; // Use Prisma's enum type
   analysisSummary: string | null;
-  sentiment: string | null; // Allow null for sentiment
+  sentiment: string | null;
   topics: string[];
   submittedFromIP: string | null;
   userAgent: string | null;
@@ -57,9 +55,9 @@ export async function GET() {
     // Transform the data to match the FeedbackItem type
     const feedbackItems: FeedbackItem[] = prismaFeedbackItems.map(item => ({
       ...item,
-      sentiment: item.sentiment ?? null, // Ensure sentiment is explicitly null when needed
-      topics: item.topics || [], // Ensure topics is an array
-      processingLog: item.processingLog || {} // Ensure processingLog is defined
+      sentiment: item.sentiment ?? null,
+      topics: item.topics || [],
+      processingLog: item.processingLog || {}
     }));
     
     // Calculate basic analytics
