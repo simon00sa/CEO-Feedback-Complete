@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Sidebar } from "@/components/layout/sidebar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { User, UserPlus, Users, Building } from "lucide-react"
+import { useState } from "react";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { User, UserPlus, Users, Building } from "lucide-react";
 
 export default function TeamsPage() {
-  const [activeTab, setActiveTab] = useState("members")
+  const [activeTab, setActiveTab] = useState("members");
 
   // Mock team members data
   const teamMembers = [
@@ -20,7 +20,7 @@ export default function TeamsPage() {
     { id: 3, name: "Michael Johnson", email: "michael.johnson@company.com", department: "Executive", role: "Executive" },
     { id: 4, name: "Sarah Williams", email: "sarah.williams@company.com", department: "HR", role: "Manager" },
     { id: 5, name: "Robert Brown", email: "robert.brown@company.com", department: "Sales", role: "Staff" },
-  ]
+  ];
 
   // Mock departments data
   const departments = [
@@ -29,7 +29,7 @@ export default function TeamsPage() {
     { id: 3, name: "Sales", memberCount: 10, leadName: "Robert Brown" },
     { id: 4, name: "HR", memberCount: 5, leadName: "Jane Smith" },
     { id: 5, name: "Executive", memberCount: 3, leadName: "Michael Johnson" },
-  ]
+  ];
 
   return (
     <div className="flex h-screen bg-background">
@@ -62,7 +62,7 @@ export default function TeamsPage() {
                     Departments
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="members" className="mt-4">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export default function TeamsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="border rounded-md divide-y">
                       {teamMembers.map((member) => (
                         <div key={member.id} className="p-4 flex items-center justify-between">
@@ -112,14 +112,14 @@ export default function TeamsPage() {
                     </div>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="departments" className="mt-4">
                   <div className="space-y-4">
                     <Button>
                       <Building className="h-4 w-4 mr-2" />
                       Add Department
                     </Button>
-                    
+
                     <div className="border rounded-md divide-y">
                       {departments.map((dept) => (
                         <div key={dept.id} className="p-4 flex items-center justify-between">
@@ -148,5 +148,5 @@ export default function TeamsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
