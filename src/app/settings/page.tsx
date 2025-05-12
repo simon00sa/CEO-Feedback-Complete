@@ -1,18 +1,17 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Sidebar } from "@/components/layout/sidebar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Bell, Shield, Lock, Globe } from "lucide-react"
+import { useState } from "react";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("general")
+  const [activeTab, setActiveTab] = useState("general");
 
   return (
     <div className="flex h-screen bg-background">
@@ -26,6 +25,8 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>System Settings</CardTitle>
               <CardDescription>Configure your anonymous feedback platform</CardDescription>
+            </CardHeader>
+            <div className="p-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="general">General</TabsTrigger>
@@ -33,14 +34,14 @@ export default function SettingsPage() {
                   <TabsTrigger value="notifications">Notifications</TabsTrigger>
                   <TabsTrigger value="security">Security</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="general" className="mt-4 space-y-4">
                   <div className="space-y-4">
                     <div className="grid gap-2">
                       <Label htmlFor="company-name">Company Name</Label>
                       <Input id="company-name" defaultValue="Example Company" />
                     </div>
-                    
+
                     <div className="grid gap-2">
                       <Label htmlFor="language">Default Language</Label>
                       <Select defaultValue="en">
@@ -56,7 +57,7 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="grid gap-2">
                       <Label htmlFor="timezone">Timezone</Label>
                       <Select defaultValue="utc">
@@ -72,7 +73,7 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">Dark Mode</h3>
@@ -80,11 +81,11 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <Button>Save General Settings</Button>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="privacy" className="mt-4 space-y-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -103,7 +104,7 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">Feedback Preview</h3>
@@ -111,7 +112,7 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">Data Retention</h3>
@@ -130,11 +131,11 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <Button>Save Privacy Settings</Button>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="notifications" className="mt-4 space-y-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -144,7 +145,7 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">New Feedback Alerts</h3>
@@ -152,7 +153,7 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">Status Change Notifications</h3>
@@ -160,7 +161,7 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">Response Notifications</h3>
@@ -168,11 +169,11 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <Button>Save Notification Settings</Button>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="security" className="mt-4 space-y-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -182,7 +183,7 @@ export default function SettingsPage() {
                       </div>
                       <Switch />
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">Session Timeout</h3>
@@ -201,7 +202,7 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">API Access</h3>
@@ -209,15 +210,15 @@ export default function SettingsPage() {
                       </div>
                       <Switch defaultChecked />
                     </div>
-                    
+
                     <Button>Save Security Settings</Button>
                   </div>
                 </TabsContent>
               </Tabs>
-            </CardHeader>
+            </div>
           </Card>
         </div>
       </div>
     </div>
-  )
+  );
 }
