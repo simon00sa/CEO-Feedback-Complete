@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Main Home Page Component
+// Define the type of the settings object
+type Settings = {
+  appName?: string;
+};
+
 export default function HomePage() {
   const { data: session, status } = useSession();
   const [appName, setAppName] = useState("Speak Up"); // Default app name
@@ -19,7 +23,7 @@ export default function HomePage() {
       try {
         const response = await fetch("/api/settings"); // Assuming a public endpoint
         if (response.ok) {
-          const settings = await response.json();
+          const settings: Settings = await response.json();
           if (settings.appName) {
             setAppName(settings.appName);
           }
