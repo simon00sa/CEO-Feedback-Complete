@@ -8,6 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Placeholder for UserNav component
+const UserNav = () => {
+  return (
+    <div className="flex items-center space-x-4">
+      <span>Welcome, User!</span>
+      <Button variant="outline" size="sm">
+        Profile
+      </Button>
+    </div>
+  );
+};
+
 // Define the type of the settings object
 type Settings = {
   appName?: string;
