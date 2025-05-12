@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/authOptions';
-import { AI } from '@/lib/ai'; // Import the AI class
+import aiInstance from '@/lib/ai'; // Import the default export (AIImplementation instance)
 
 const prisma = new PrismaClient();
 
@@ -11,7 +11,8 @@ const prisma = new PrismaClient();
 async function triggerFeedbackAnalysis(feedbackId: string, feedbackContent: string) {
   console.log(`[Async Task Start] Analyzing feedback ID: ${feedbackId}`);
   try {
-    const analysisResult = await AI.analyzeSingleFeedback(feedbackContent);
+    // Use the instance directly
+    const analysisResult = await aiInstance.analyzeSingleFeedback(feedbackContent);
     
     // Update the feedback record with the analysis results
     await prisma.feedback.update({
@@ -141,5 +142,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to fetch feedback.' }, { status: 500 });
   }
 }
-
-
