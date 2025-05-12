@@ -1,34 +1,30 @@
 'use server'
 // import { getCloudflareContext } from '@opennextjs/cloudflare'
-import { headers } from 'next/headers'
-import { cookies } from 'next/headers'
+import { headers, cookies } from 'next/headers'
 
 /**
  * Increment counter and log access
  *
  * Database connection instructions:
- * 1. Uncomment the import { getCloudflareContext } line
- * 2. Uncomment the const cf = await getCloudflareContext() line
- * 3. Uncomment the database operation code
- * 4. Make sure D1 database binding is configured in wrangler.toml
- * 5. Required database tables:
+ * 1. Uncomment the `getCloudflareContext` import and related code.
+ * 2. Ensure D1 database binding is configured in `wrangler.toml`.
+ * 3. Required database tables:
  *    - counters table: name(TEXT), value(INTEGER)
  *    - access_logs table: ip(TEXT), path(TEXT), accessed_at(DATETIME)
  */
 export async function incrementAndLog() {
   // const cf = await getCloudflareContext()
-  const headersList = headers()
   const cookieStore = await cookies()
 
-  // Get current count from cookie or start at 0
-  let currentCount = parseInt(cookieStore.get('page_views')?.value || '0')
+  // Get current count from cookie or default to 0
+  let currentCount = parseInt(cookieStore.get('page_views')?.value || '0', 10)
 
   // Increment count
   currentCount += 1
 
   // Store updated count in cookie (expires in 1 year)
   cookieStore.set('page_views', currentCount.toString(), {
-    expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
     path: '/'
   })
 
@@ -48,7 +44,7 @@ export async function incrementAndLog() {
     path: '/'
   })
 
-  // Database operation example (commented out):
+  // Uncomment and configure the database operations if needed
   // const { results: countResults } = await cf.env.DB.prepare(
   //   'INSERT INTO counters (name, value) VALUES (?, 1) ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value'
   // )
@@ -57,8 +53,8 @@ export async function incrementAndLog() {
 
   // await cf.env.DB.prepare('INSERT INTO access_logs (ip, path, accessed_at) VALUES (?, ?, datetime())')
   //   .bind(
-  //     headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'unknown',
-  //     headersList.get('x-forwarded-host') || '/'
+  //     headers().get('x-forwarded-for') || headers().get('x-real-ip') || 'unknown',
+  //     headers().get('x-forwarded-host') || '/'
   //   )
   //   .run()
 
@@ -74,20 +70,20 @@ export async function incrementAndLog() {
  * Get current counter value and recent access logs
  *
  * Database query instructions:
- * 1. When using database, get Cloudflare context with getCloudflareContext()
- * 2. Use cf.env.DB.prepare to execute SQL queries
- * 3. For local development, you can use wrangler to simulate the database
+ * 1. Uncomment the `getCloudflareContext` import and related code.
+ * 2. Use `cf.env.DB.prepare` to execute SQL queries.
+ * 3. For local development, simulate the database using Wrangler.
  */
 export async function getStats() {
   const cookieStore = await cookies()
 
   // Get current count from cookie or default to 0
-  const currentCount = parseInt(cookieStore.get('page_views')?.value || '0')
+  const currentCount = parseInt(cookieStore.get('page_views')?.value || '0', 10)
 
   // Get recent access list from cookie or default to empty array
   const recentAccessList = JSON.parse(cookieStore.get('recent_access')?.value || '[]')
 
-  // Database query example (commented out):
+  // Uncomment and configure the database queries if needed
   // const cf = await getCloudflareContext()
   // const { results: count } = await cf.env.DB.prepare('SELECT value FROM counters WHERE name = ?')
   //   .bind('page_views')
