@@ -31,12 +31,12 @@ export function AnonymitySettingsForm() {
     try {
       const response = await fetch('/api/admin/anonymity-settings');
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: { error?: string } = await response.json();
         throw new Error(errorData.error || 'Failed to fetch anonymity settings');
       }
       const data: AnonymitySettingsData = await response.json();
       setSettings(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching anonymity settings:", err);
       setError(err.message || 'An unexpected error occurred.');
       toast.error(err.message || 'Failed to load anonymity settings.');
@@ -80,7 +80,6 @@ export function AnonymitySettingsForm() {
         activityThresholdDays: settings.activityThresholdDays,
         combinationLogic: settings.combinationLogic,
         enableGrouping: settings.enableGrouping,
-        // activityRequirements: settings.activityRequirements, // Handle JSON field if needed
       };
 
       const response = await fetch('/api/admin/anonymity-settings', {
@@ -92,7 +91,7 @@ export function AnonymitySettingsForm() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: { error?: string } = await response.json();
         throw new Error(errorData.error || 'Failed to save anonymity settings');
       }
 
@@ -100,7 +99,7 @@ export function AnonymitySettingsForm() {
       setSettings(updatedSettings); // Update state with saved settings
       toast.success("Anonymity settings saved successfully!");
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving anonymity settings:", err);
       setError(err.message || 'An unexpected error occurred while saving.');
       toast.error(err.message || 'Failed to save anonymity settings.');
@@ -191,14 +190,12 @@ export function AnonymitySettingsForm() {
         />
         <Label htmlFor="enableGrouping">Enable Dynamic Grouping/Merging</Label>
       </div>
-       <p className="text-sm text-muted-foreground">
-          If enabled, the system will automatically merge groups based on the rules above. If disabled, all teams report separately (use with caution).
-        </p>
-
-      {/* TODO: Add input for activityRequirements (JSON field) if needed */}
+      <p className="text-sm text-muted-foreground">
+        If enabled, the system will automatically merge groups based on the rules above. If disabled, all teams report separately (use with caution).
+      </p>
 
       {error && isSaving && (
-         <p className="text-sm text-red-500">Error saving: {error}</p>
+        <p className="text-sm text-red-500">Error saving: {error}</p>
       )}
 
       <Button type="submit" disabled={isSaving}>
