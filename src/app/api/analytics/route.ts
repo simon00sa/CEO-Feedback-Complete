@@ -1,47 +1,60 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAnalytics } from '@/lib/db';
-import { EdenAI } from '@/lib/ai';
-import { getCurrentUser } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { EdenAI } from '@/lib/edenAI'; // Assuming EdenAI is a library for AI analysis
 
-export async function GET(request: NextRequest) {
+// Define the FeedbackItem type according to your database schema
+type FeedbackItem = {
+  id: string;
+  content: string;
+  sentiment?: string;
+  createdAt: Date;
+  userId?: string;
+  teamId?: string;
+  // Add other fields based on your Prisma schema
+};
+
+export async function GET() {
   try {
-    // Get current user (in a real implementation, this would be from the session)
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Check if user has permission to view analytics
-    // Fix: Access the role.name property instead of using role directly
-    if (!['executive', 'admin'].includes(user.role?.name || '')) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
-    }
-    
-    const { searchParams } = new URL(request.url);
-    const period = (searchParams.get('period') as 'day' | 'week' | 'month' | 'quarter' | 'year') || 'month';
-    
-    // Get analytics data
-    const analytics = await getAnalytics(period);
-    
-    // Get AI analysis of feedback trends
-    const feedbackItems = []; // In a real implementation, this would be fetched from the database
-    const aiAnalysis = await EdenAI.analyzeFeedback(feedbackItems);
-    
-    return NextResponse.json({
-      analytics,
-      aiAnalysis
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email || '' },
+      include: { role: true },
     });
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
+    if (!['executive', 'admin'].includes(user.role?.name || '')) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+    
+    // Replace this with actual database query from Prisma
+    const feedbackItems: FeedbackItem[] = await prisma.feedback.findMany({
+      where: {
+        // Add filters as needed
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    
+    // Process feedback items, perform analysis, etc.
+    
+    return NextResponse.json({ 
+      feedbackItems,
+      // Add other analytics data as needed
+    }, { status: 200 });
+    
   } catch (error) {
-    console.error('Error getting analytics:', error);
-    return NextResponse.json(
-      { error: 'Failed to get analytics' },
-      { status: 500 }
-    );
+    console.error('Error in analytics route:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
