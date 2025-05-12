@@ -1,6 +1,6 @@
 'use server'
 // import { getCloudflareContext } from '@opennextjs/cloudflare'
-import { headers, cookies } from 'next/headers'
+import { cookies } from 'next/headers'
 
 /**
  * Increment counter and log access
@@ -44,22 +44,6 @@ export async function incrementAndLog() {
     path: '/'
   })
 
-  // Uncomment and configure the database operations if needed
-  // const { results: countResults } = await cf.env.DB.prepare(
-  //   'INSERT INTO counters (name, value) VALUES (?, 1) ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value'
-  // )
-  //   .bind('page_views')
-  //   .all()
-
-  // await cf.env.DB.prepare('INSERT INTO access_logs (ip, path, accessed_at) VALUES (?, ?, datetime())')
-  //   .bind(
-  //     headers().get('x-forwarded-for') || headers().get('x-real-ip') || 'unknown',
-  //     headers().get('x-forwarded-host') || '/'
-  //   )
-  //   .run()
-
-  // const { results: logs } = await cf.env.DB.prepare('SELECT * FROM access_logs ORDER BY accessed_at DESC LIMIT 5').all()
-
   return {
     count: currentCount,
     recentAccess: recentAccessList
@@ -82,16 +66,6 @@ export async function getStats() {
 
   // Get recent access list from cookie or default to empty array
   const recentAccessList = JSON.parse(cookieStore.get('recent_access')?.value || '[]')
-
-  // Uncomment and configure the database queries if needed
-  // const cf = await getCloudflareContext()
-  // const { results: count } = await cf.env.DB.prepare('SELECT value FROM counters WHERE name = ?')
-  //   .bind('page_views')
-  //   .all()
-
-  // const { results: logs } = await cf.env.DB.prepare(
-  //   'SELECT accessed_at FROM access_logs ORDER BY accessed_at DESC LIMIT 5'
-  // ).all()
 
   return {
     count: currentCount,
