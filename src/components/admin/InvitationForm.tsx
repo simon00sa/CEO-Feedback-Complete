@@ -1,117 +1,111 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 
-// Define the form schema using Zod
-const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  roleName: z.enum(["Staff", "Leadership", "Admin"], { required_error: "Role is required." }),
-});
+// Define the shape of an invitation
+interface Invitation {
+  id: string;
+  email: string;
+  roleName: string;
+  status: string; // e.g., "Pending", "Accepted"
+}
 
-export function InvitationForm() {
+// Define the shape of the error data
+interface ErrorData {
+  error?: string;
+}
+
+export function InvitationList() {
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Initialize the form with react-hook-form and Zod resolver
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      roleName: undefined, // Set default to undefined for placeholder
-    },
-  });
-
-  // Handle form submission
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  // Fetch invitations from the backend
+  const fetchInvitations = async () => {
     setIsLoading(true);
-    try {
-      const response = await fetch('/api/admin/invitations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
+    setError(null);
 
+    try {
+      const response = await fetch('/api/admin/invitations');
       if (!response.ok) {
-        const errorData: { error?: string } = await response.json(); // Properly type errorData
-        throw new Error(errorData.error || 'Failed to create invitation');
+        const errorData: ErrorData = await response.json(); // Properly type errorData
+        throw new Error(errorData.error || 'Failed to fetch invitations');
       }
 
-      const result: { email: string } = await response.json(); // Properly type result
-      toast.success(`Invitation created successfully for ${result.email}`);
-      form.reset(); // Reset form after successful submission
-
-    } catch (error: any) {
-      console.error("Submission error:", error);
-      toast.error(error.message || "An unexpected error occurred.");
+      const data: Invitation[] = await response.json(); // Properly type the invitations data
+      setInvitations(data);
+    } catch (err: any) {
+      console.error('Error fetching invitations:', err);
+      setError(err.message || 'An unexpected error occurred.');
+      toast.error(err.message || 'Failed to fetch invitations.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle invitation deletion
+  const handleDelete = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/invitations/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData: ErrorData = await response.json(); // Properly type errorData
+        throw new Error(errorData.error || 'Failed to delete invitation');
+      }
+
+      toast.success('Invitation deleted successfully!');
+      setInvitations((prev) => prev.filter((invitation) => invitation.id !== id));
+    } catch (err: any) {
+      console.error('Error deleting invitation:', err);
+      setError(err.message || 'An unexpected error occurred.');
+      toast.error(err.message || 'Failed to delete invitation.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvitations();
+  }, []);
+
+  if (isLoading) {
+    return <p>Loading invitations...</p>;
+  }
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email Address</FormLabel>
-              <FormControl>
-                <Input placeholder="employee@example.com" {...field} disabled={isLoading} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="roleName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Role</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="Staff">Staff</SelectItem>
-                  <SelectItem value="Leadership">Leadership</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Sending..." : "Send Invitation"}
-        </Button>
-      </form>
-    </Form>
+    <div className="space-y-4">
+      {invitations.length > 0 ? (
+        invitations.map((invitation) => (
+          <div key={invitation.id} className="flex items-center justify-between p-4 border rounded">
+            <div>
+              <p className="font-medium">{invitation.email}</p>
+              <p className="text-sm text-muted-foreground">Role: {invitation.roleName}</p>
+              <p className="text-sm text-muted-foreground">Status: {invitation.status}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDelete(invitation.id)}
+              disabled={isLoading}
+            >
+              Delete
+            </Button>
+          </div>
+        ))
+      ) : (
+        <p>No invitations found.</p>
+      )}
+    </div>
   );
 }
