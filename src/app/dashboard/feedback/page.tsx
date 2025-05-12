@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/authOptions';
-import { FeedbackDisplay } from '@/components/dashboard/FeedbackDisplay';
+import FeedbackDisplay from '@/app/dashboard/feedback/feedbackDisplay'; // Corrected the import path
 import { redirect } from 'next/navigation';
 
 // This page should display feedback based on the user's role.
@@ -27,8 +26,6 @@ export default async function FeedbackDashboardPage() {
       
       {/* Client component to fetch and display feedback based on role */} 
       <FeedbackDisplay userRole={userRole} />
-      
     </div>
   );
 }
-
