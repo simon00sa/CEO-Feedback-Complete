@@ -1,7 +1,7 @@
 import React from 'react';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '@/lib/authOptions';
-import FeedbackDisplay from '@/app/dashboard/feedback/feedbackDisplay'; // Corrected the import path
+import FeedbackDisplay from './feedbackDisplay'; // Updated the import path
 import { redirect } from 'next/navigation';
 
 // This page should display feedback based on the user's role.
