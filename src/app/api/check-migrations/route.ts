@@ -35,16 +35,12 @@ export async function GET() {
       isRequired: field.isRequired,
     }));
     
-    // Try to create a test invitation using connect syntax for relations
-    // We'll only validate the structure, not actually create it
-    const createTestValid = Prisma.validator<Prisma.InvitationCreateInput>()({
+    // Using UncheckedCreateInput to avoid relation complexity
+    // This directly sets the foreign key fields
+    const createTestValid = Prisma.validator<Prisma.InvitationUncheckedCreateInput>()({
       email: "test@example.com",
-      inviter: {
-        connect: { id: "test-id" }
-      },
-      role: {
-        connect: { id: "test-role-id" }
-      },
+      inviterId: "test-id", // Direct foreign key
+      roleId: "test-role-id", // Direct foreign key
       token: "test-token",
       status: "PENDING",
       orgId: "test-org-id",
