@@ -54,15 +54,15 @@ export function InvitationForm() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: { error?: string } = await response.json(); // Properly type errorData
         throw new Error(errorData.error || 'Failed to create invitation');
       }
 
-      const result = await response.json();
+      const result: { email: string } = await response.json(); // Properly type result
       toast.success(`Invitation created successfully for ${result.email}`);
       form.reset(); // Reset form after successful submission
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Submission error:", error);
       toast.error(error.message || "An unexpected error occurred.");
     } finally {
@@ -115,4 +115,3 @@ export function InvitationForm() {
     </Form>
   );
 }
-
