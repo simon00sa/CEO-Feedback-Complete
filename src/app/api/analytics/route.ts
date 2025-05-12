@@ -2,15 +2,24 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { JsonValue } from '@prisma/client/runtime/library';
 
-// Define a type for feedback items to fix the TypeScript error
+// Define the FeedbackStatus type if not already defined elsewhere
+type FeedbackStatus = 'PENDING' | 'PROCESSED' | 'PUBLISHED' | 'ARCHIVED';
+
+// Define the complete FeedbackItem type to match your Prisma schema
 type FeedbackItem = {
   id: string;
   content: string;
-  sentiment?: string;
   createdAt: Date;
-  userId?: string;
-  anonymizedContent?: string;
+  updatedAt: Date;
+  status: FeedbackStatus;
+  analysisSummary: string | null;
+  sentiment: string | null; // Allow null for sentiment
+  topics: string[];
+  submittedFromIP: string | null;
+  userAgent: string | null;
+  processingLog: JsonValue;
 };
 
 export async function GET() {
@@ -34,10 +43,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
     
-    // Use explicit typing for feedbackItems to fix the TypeScript error
-    const feedbackItems: FeedbackItem[] = await prisma.feedback.findMany({
+    // Fetch feedback from Prisma
+    const prismaFeedbackItems = await prisma.feedback.findMany({
       where: {
-        // Add filters if needed
+        // Add filters if needed based on user's org or team
       },
       orderBy: {
         createdAt: 'desc'
@@ -45,18 +54,43 @@ export async function GET() {
       take: 50 // Limit to recent items
     });
     
-    // Basic analytics calculation
+    // Transform the data to match the FeedbackItem type
+    const feedbackItems: FeedbackItem[] = prismaFeedbackItems.map(item => ({
+      ...item,
+      sentiment: item.sentiment ?? null, // Ensure sentiment is explicitly null when needed
+      topics: item.topics || [], // Ensure topics is an array
+      processingLog: item.processingLog || {} // Ensure processingLog is defined
+    }));
+    
+    // Calculate basic analytics
     const totalFeedback = feedbackItems.length;
     
     const sentimentBreakdown = {
       positive: feedbackItems.filter(item => item.sentiment === 'positive').length,
       neutral: feedbackItems.filter(item => item.sentiment === 'neutral').length,
       negative: feedbackItems.filter(item => item.sentiment === 'negative').length,
+      unknown: feedbackItems.filter(item => item.sentiment === null).length
     };
+    
+    // Calculate status breakdown
+    const statusBreakdown: Record<string, number> = {};
+    feedbackItems.forEach(item => {
+      statusBreakdown[item.status] = (statusBreakdown[item.status] || 0) + 1;
+    });
+    
+    // Calculate topic frequency
+    const topicsFrequency: Record<string, number> = {};
+    feedbackItems.forEach(item => {
+      item.topics.forEach(topic => {
+        topicsFrequency[topic] = (topicsFrequency[topic] || 0) + 1;
+      });
+    });
     
     return NextResponse.json({ 
       totalFeedback,
       sentimentBreakdown,
+      statusBreakdown,
+      topicsFrequency,
       recentFeedback: feedbackItems.slice(0, 10) // Return only 10 most recent items
     }, { status: 200 });
     
