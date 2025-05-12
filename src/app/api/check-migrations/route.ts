@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 
 export async function GET() {
   try {
@@ -35,8 +34,7 @@ export async function GET() {
       isRequired: field.isRequired,
     }));
     
-    // Use a direct type cast instead of validator for testing
-    // This bypasses type checking but allows us to test the structure
+    // Use a direct object for testing without Prisma validator
     const createTestValid = {
       email: "test@example.com",
       inviterId: "test-id",
@@ -46,7 +44,7 @@ export async function GET() {
       orgId: "test-org-id",
       expires: new Date(),
       used: false,
-    } as any; // Type assertion to bypass type checking
+    };
     
     return NextResponse.json({
       dbConnection: dbTest,
