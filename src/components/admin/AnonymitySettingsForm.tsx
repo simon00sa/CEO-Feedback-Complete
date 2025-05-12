@@ -95,7 +95,7 @@ export function AnonymitySettingsForm() {
         throw new Error(errorData.error || 'Failed to save anonymity settings');
       }
 
-      const updatedSettings = await response.json();
+      const updatedSettings: AnonymitySettingsData = await response.json(); // Ensure correct typing
       setSettings(updatedSettings); // Update state with saved settings
       toast.success("Anonymity settings saved successfully!");
 
@@ -124,7 +124,7 @@ export function AnonymitySettingsForm() {
           id="minGroupSize"
           name="minGroupSize"
           type="number"
-          min="2" // Sensible minimum
+          min="2"
           value={settings.minGroupSize || ''}
           onChange={handleInputChange}
           disabled={isSaving}
