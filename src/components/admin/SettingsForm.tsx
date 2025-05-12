@@ -1,58 +1,58 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Define the expected shape of the settings object
 interface AppSettings {
-  appName?: string;
-  // Add other expected settings keys here as needed
-  // e.g., theme?: string;
-  [key: string]: any; // Allow other keys
+  siteName: string;
+  feedbackEmail: string;
+  allowAnonymousFeedback: boolean;
 }
 
 export function SettingsForm() {
-  const [settings, setSettings] = useState<AppSettings>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [settings, setSettings] = useState<AppSettings>({
+    siteName: '',
+    feedbackEmail: '',
+    allowAnonymousFeedback: false,
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch settings function
-  const fetchSettings = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/admin/settings');
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch settings');
-      }
-      const data: AppSettings = await response.json();
-      setSettings(data);
-    } catch (err) {
-      console.error("Error fetching settings:", err);
-      setError(err.message || 'An unexpected error occurred.');
-      toast.error(err.message || 'Failed to load settings.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   // Fetch settings on component mount
   useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/admin/settings');
+        if (!response.ok) {
+          const errorData: { error?: string } = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch settings');
+        }
+        const data: AppSettings = await response.json();
+        setSettings(data);
+      } catch (err: any) {
+        console.error('Error fetching settings:', err);
+        setError(err.message || 'An unexpected error occurred.');
+        toast.error(err.message || 'Failed to load settings.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchSettings();
-  }, [fetchSettings]);
+  }, []);
 
   // Handle input changes
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    setSettings(prevSettings => ({
+    const { name, value, type } = event.target;
+    setSettings((prevSettings) => ({
       ...prevSettings,
-      [name]: value,
+      [name]: type === 'checkbox' ? (event.target as HTMLInputElement).checked : value,
     }));
   };
 
@@ -61,6 +61,7 @@ export function SettingsForm() {
     event.preventDefault();
     setIsSaving(true);
     setError(null);
+
     try {
       const response = await fetch('/api/admin/settings', {
         method: 'PUT',
@@ -71,17 +72,14 @@ export function SettingsForm() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: { error?: string } = await response.json();
         throw new Error(errorData.error || 'Failed to save settings');
       }
 
-      const updatedSettings = await response.json();
-      setSettings(updatedSettings); // Update state with potentially processed settings
-      toast.success("Settings saved successfully!");
-
-    } catch (err) {
-      console.error("Error saving settings:", err);
-      setError(err.message || 'An unexpected error occurred while saving.');
+      toast.success('Settings saved successfully!');
+    } catch (err: any) {
+      console.error('Error saving settings:', err);
+      setError(err.message || 'An unexpected error occurred.');
       toast.error(err.message || 'Failed to save settings.');
     } finally {
       setIsSaving(false);
@@ -92,39 +90,54 @@ export function SettingsForm() {
     return <p>Loading settings...</p>;
   }
 
-  if (error && !isSaving) { // Don't show loading error if a save error occurred
-    return <p className="text-red-500">Error loading settings: {error}</p>;
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Example Setting: Application Name */} 
-      <div className="space-y-2">
-        <Label htmlFor="appName">Application Name</Label>
+      <div>
+        <label htmlFor="siteName" className="block text-sm font-medium text-gray-700">
+          Site Name
+        </label>
         <Input
-          id="appName"
-          name="appName" // Must match the key in the settings object
-          value={settings.appName || ''}
+          id="siteName"
+          name="siteName"
+          type="text"
+          value={settings.siteName}
           onChange={handleInputChange}
-          placeholder="e.g., CEO Feedback Platform"
           disabled={isSaving}
         />
-        <p className="text-sm text-muted-foreground">
-          The name displayed in the application header or title.
-        </p>
       </div>
 
-      {/* Add more setting fields here as needed */} 
-      {/* Example: 
-      <div className="space-y-2">
-        <Label htmlFor="theme">Theme</Label>
-        <Input id="theme" name="theme" value={settings.theme || ''} onChange={handleInputChange} disabled={isSaving} />
-      </div> 
-      */}
+      <div>
+        <label htmlFor="feedbackEmail" className="block text-sm font-medium text-gray-700">
+          Feedback Email
+        </label>
+        <Input
+          id="feedbackEmail"
+          name="feedbackEmail"
+          type="email"
+          value={settings.feedbackEmail}
+          onChange={handleInputChange}
+          disabled={isSaving}
+        />
+      </div>
 
-      {error && isSaving && (
-         <p className="text-sm text-red-500">Error saving: {error}</p>
-      )}
+      <div className="flex items-center">
+        <input
+          id="allowAnonymousFeedback"
+          name="allowAnonymousFeedback"
+          type="checkbox"
+          checked={settings.allowAnonymousFeedback}
+          onChange={handleInputChange}
+          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+          disabled={isSaving}
+        />
+        <label htmlFor="allowAnonymousFeedback" className="ml-2 block text-sm text-gray-900">
+          Allow Anonymous Feedback
+        </label>
+      </div>
 
       <Button type="submit" disabled={isSaving}>
         {isSaving ? 'Saving...' : 'Save Settings'}
@@ -132,4 +145,3 @@ export function SettingsForm() {
     </form>
   );
 }
-
