@@ -31,14 +31,21 @@ async function triggerFeedbackAnalysis(feedbackId: string, feedbackContent: stri
     console.error(`[Async Task Error] Failed to analyze feedback ID: ${feedbackId}`, error);
     // Optionally update the feedback record to indicate analysis failure
     try {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
       await prisma.feedback.update({
         where: { id: feedbackId },
         data: {
-          processingLog: { lastAnalysis: new Date().toISOString(), status: 'Error', message: error.message }
+          processingLog: { 
+            lastAnalysis: new Date().toISOString(), 
+            status: 'Error', 
+            message: errorMessage 
+          }
         },
       });
     } catch (dbError) {
-      console.error(`[Async Task Error] Failed to update feedback ${feedbackId} with error status:`, dbError);
+      const dbErrorMessage = dbError instanceof Error ? dbError.message : String(dbError);
+      console.error(`[Async Task Error] Failed to update feedback ${feedbackId} with error status: ${dbErrorMessage}`);
     }
   }
 }
@@ -76,7 +83,8 @@ export async function POST(request: Request) {
     // It does NOT block the response to the user.
     triggerFeedbackAnalysis(feedback.id, feedback.content).catch(err => {
       // Log errors from the async task initiation itself (rare)
-      console.error("Error initiating background feedback analysis:", err);
+      const errMessage = err instanceof Error ? err.message : String(err);
+      console.error("Error initiating background feedback analysis:", errMessage);
     });
     
     console.log(`Feedback ${feedback.id} created. AI analysis triggered asynchronously.`);
@@ -85,7 +93,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Feedback submitted successfully. Analysis will be performed.' }, { status: 201 });
 
   } catch (error) {
-    console.error("Error submitting feedback:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error submitting feedback:", errorMessage);
     return NextResponse.json({ error: 'Failed to submit feedback.' }, { status: 500 });
   }
 }
@@ -115,7 +124,7 @@ export async function GET(request: Request) {
       feedbackData = await prisma.feedback.findMany({
         where: {
           // Optionally filter status for Leadership
-           status: { notIn: ['PENDING'] } // Example: Don't show pending to Leadership
+          status: { notIn: ['PENDING'] } // Example: Don't show pending to Leadership
         },
         select: commonSelectFields,
         orderBy: { createdAt: 'desc' },
@@ -138,7 +147,8 @@ export async function GET(request: Request) {
     return NextResponse.json(feedbackData, { status: 200 });
 
   } catch (error) {
-    console.error("Error fetching feedback:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error fetching feedback:", errorMessage);
     return NextResponse.json({ error: 'Failed to fetch feedback.' }, { status: 500 });
   }
 }
