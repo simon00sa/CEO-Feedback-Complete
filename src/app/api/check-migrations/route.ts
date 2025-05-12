@@ -35,12 +35,16 @@ export async function GET() {
       isRequired: field.isRequired,
     }));
     
-    // Try to create a test invitation using unchecked input
+    // Try to create a test invitation using connect syntax for relations
     // We'll only validate the structure, not actually create it
-    const createTestValid = Prisma.validator<Prisma.InvitationUncheckedCreateInput>()({
+    const createTestValid = Prisma.validator<Prisma.InvitationCreateInput>()({
       email: "test@example.com",
-      inviterId: "test-id",
-      roleId: "test-role-id",
+      inviter: {
+        connect: { id: "test-id" }
+      },
+      role: {
+        connect: { id: "test-role-id" }
+      },
       token: "test-token",
       status: "PENDING",
       orgId: "test-org-id",
@@ -56,7 +60,7 @@ export async function GET() {
         modelExists: !!invitationModel,
         fields: invitationFields,
       },
-      validationTest: { 
+      validationTest: {
         structure: createTestValid,
         valid: true
       },
