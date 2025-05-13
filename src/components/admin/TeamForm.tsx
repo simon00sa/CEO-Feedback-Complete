@@ -5,16 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-interface Team {
-  id: string;
-  name: string;
-}
-
 interface ErrorResponse {
   error?: string;
 }
 
-export function TeamForm() { // Updated component name to match the file name
+export function TeamForm() {
   const [teamName, setTeamName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
