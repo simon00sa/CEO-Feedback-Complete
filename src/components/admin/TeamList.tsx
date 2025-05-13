@@ -26,6 +26,11 @@ interface Team {
   updatedAt: string; // ISO date string
 }
 
+// Define the expected shape of the error response
+interface ErrorResponse {
+  error?: string;
+}
+
 export function TeamList() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +43,7 @@ export function TeamList() {
     try {
       const response = await fetch('/api/admin/teams');
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData: ErrorResponse = await response.json();
         throw new Error(errorData.error || 'Failed to fetch teams');
       }
       const data: Team[] = await response.json();
