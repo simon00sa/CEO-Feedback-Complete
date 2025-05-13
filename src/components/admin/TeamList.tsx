@@ -26,11 +26,6 @@ interface Team {
   updatedAt: string; // ISO date string
 }
 
-// Define the expected shape of the error response
-interface ErrorResponse {
-  error?: string;
-}
-
 export function TeamList() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,15 +38,20 @@ export function TeamList() {
     try {
       const response = await fetch('/api/admin/teams');
       if (!response.ok) {
-        const errorData: ErrorResponse = await response.json(); // Explicitly type errorData
+        const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch teams');
       }
       const data: Team[] = await response.json();
       setTeams(data);
     } catch (err) {
       console.error("Error fetching teams:", err);
-      setError(err.message || 'An unexpected error occurred.');
-      toast.error(err.message || 'Failed to load teams.');
+      if (err instanceof Error) {
+        setError(err.message || 'An unexpected error occurred.');
+        toast.error(err.message || 'Failed to load teams.');
+      } else {
+        setError('An unexpected error occurred.');
+        toast.error('Failed to load teams.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,8 +61,6 @@ export function TeamList() {
   useEffect(() => {
     fetchTeams();
   }, [fetchTeams]);
-
-  // TODO: Implement refresh mechanism if needed (e.g., after adding a team)
 
   if (isLoading) {
     return <p>Loading teams...</p>;
@@ -84,10 +82,6 @@ export function TeamList() {
           <TableHead>Name</TableHead>
           <TableHead>Display Group (Anonymity)</TableHead>
           <TableHead>Created At</TableHead>
-          {/* Add more columns as needed, e.g., member counts, status */}
-          {/* <TableHead>Members</TableHead> */}
-          {/* <TableHead>Active Members</TableHead> */}
-          {/* <TableHead>Anonymity Status</TableHead> */}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -96,7 +90,6 @@ export function TeamList() {
             <TableCell className="font-medium">{team.name}</TableCell>
             <TableCell>{team.displayGroup || team.name}</TableCell>
             <TableCell>{format(new Date(team.createdAt), 'PP')}</TableCell>
-            {/* Render more cells corresponding to added columns */}
           </TableRow>
         ))}
       </TableBody>
