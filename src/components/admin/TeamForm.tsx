@@ -1,65 +1,64 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-// Define the type for the error response
+// Define the expected shape of the team object
+interface Team {
+  id: string;
+  name: string;
+}
+
+// Define the expected shape of the error response
 interface ErrorResponse {
   error?: string;
 }
 
-export function TeamForm() {
-  const [teamName, setTeamName] = useState('');
+export function TeamList() {
+  const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setIsLoading(true);
+  useEffect(() => {
+    const fetchTeams = async () => {
+      setIsLoading(true);
 
-    try {
-      const response = await fetch('/api/admin/teams', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: teamName }),
-      });
+      try {
+        const response = await fetch('/api/admin/teams');
 
-      if (!response.ok) {
-        const errorData: ErrorResponse = await response.json(); // Explicitly type errorData
-        throw new Error(errorData.error || 'Failed to add team');
+        if (!response.ok) {
+          const errorData: ErrorResponse = await response.json(); // Explicitly type errorData
+          throw new Error(errorData.error || 'Failed to fetch teams');
+        }
+
+        const data: Team[] = await response.json();
+        setTeams(data);
+      } catch (error: any) {
+        console.error('Error fetching teams:', error);
+        toast.error(error.message || 'An unexpected error occurred.');
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      toast.success('Team added successfully!');
-      setTeamName(''); // Clear the input field on success
-    } catch (error: any) {
-      console.error('Error adding team:', error);
-      toast.error(error.message || 'An unexpected error occurred.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    fetchTeams();
+  }, []);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="teamName" className="block text-sm font-medium text-gray-700">
-          Team Name
-        </label>
-        <Input
-          id="teamName"
-          name="teamName"
-          type="text"
-          value={teamName}
-          onChange={(e) => setTeamName(e.target.value)}
-          disabled={isLoading}
-        />
-      </div>
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? 'Adding...' : 'Add Team'}
+    <div className="space-y-4">
+      <h1 className="text-xl font-bold">Teams</h1>
+      {isLoading ? (
+        <p>Loading teams...</p>
+      ) : (
+        <ul className="list-disc pl-5">
+          {teams.map((team) => (
+            <li key={team.id}>{team.name}</li>
+          ))}
+        </ul>
+      )}
+      <Button onClick={() => toast.success('Feature coming soon!')} disabled={isLoading}>
+        Add New Team
       </Button>
-    </form>
+    </div>
   );
 }
