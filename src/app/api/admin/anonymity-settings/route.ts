@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { ensureAdmin, handlePrismaError } from '@/lib/utils';
 
@@ -83,7 +84,7 @@ export async function PUT(req: NextRequest) {
     const validatedData = AnonymitySettingsSchema.parse(body);
 
     // Use a Prisma transaction to update or create anonymity settings
-    const settings = await prisma.$transaction(async (prisma) => {
+    const settings = await prisma.$transaction(async (prisma: PrismaClient) => {
       const existingSettings = await prisma.anonymitySettings.findFirst();
 
       if (existingSettings) {
