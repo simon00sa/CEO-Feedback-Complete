@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { Prisma, JsonValue } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { ensureAdmin, handlePrismaError } from "@/lib/utils";
 
@@ -24,12 +24,12 @@ type AnonymitySettingsResponse = {
   activityThresholdDays: number;
   combinationLogic: string;
   enableGrouping: boolean;
-  activityRequirements: JsonValue | null; // Nullable JSON value
+  activityRequirements: unknown | null; // Nullable JSON value
 };
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettings // Updated type to match Prisma model
+  settings: Prisma.AnonymitySettings // Use Prisma model type
 ): AnonymitySettingsResponse {
   return {
     id: settings.id!,
