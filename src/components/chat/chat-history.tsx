@@ -1,6 +1,4 @@
 "use client"
-
-import { useState } from "react"
 import { MessageBubble } from "./message-bubble"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
