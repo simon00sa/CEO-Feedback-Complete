@@ -35,6 +35,11 @@ interface FeedbackLeadership extends FeedbackBase {}
 
 type FeedbackItem = FeedbackAdmin | FeedbackLeadership;
 
+// Define error response interface
+interface ErrorResponse {
+  error?: string;
+}
+
 interface FeedbackDisplayProps {
   actualUserRole: 'Admin' | 'Leadership'; // The real role of the logged-in user
 }
@@ -54,7 +59,7 @@ export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
         // The API endpoint implicitly uses the logged-in user's role from the session
         const response = await fetch('/api/feedback'); 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData: ErrorResponse = await response.json();
           throw new Error(errorData.error || 'Failed to fetch feedback');
         }
         const data: FeedbackItem[] = await response.json();
