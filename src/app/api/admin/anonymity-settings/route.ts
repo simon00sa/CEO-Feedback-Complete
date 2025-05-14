@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, JsonValue } from "@prisma/client";
 import { z } from "zod";
 import { ensureAdmin, handlePrismaError } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const AnonymitySettingsSchema = z.object({
   activityThresholdDays: z.number().default(30),
   combinationLogic: z.string().default("DEPARTMENT"),
   enableGrouping: z.boolean().default(true),
+  activityRequirements: z.any().optional(), // Accept any valid JSON
 });
 
 // Define the type for the response
@@ -23,6 +24,7 @@ type AnonymitySettingsResponse = {
   activityThresholdDays: number;
   combinationLogic: string;
   enableGrouping: boolean;
+  activityRequirements: JsonValue | null; // Nullable JSON value
 };
 
 // Helper function to format the response
@@ -30,12 +32,13 @@ function formatAnonymitySettingsResponse(
   settings: Prisma.AnonymitySettingsCreateInput
 ): AnonymitySettingsResponse {
   return {
-    id: settings.id!, // Non-null assertion added
-    minGroupSize: settings.minGroupSize ?? 8, // Provide default value
-    minActiveUsers: settings.minActiveUsers ?? 5, // Provide default value
-    activityThresholdDays: settings.activityThresholdDays ?? 30, // Provide default value
-    combinationLogic: settings.combinationLogic ?? "DEPARTMENT", // Provide default value
-    enableGrouping: settings.enableGrouping ?? true, // Provide default value
+    id: settings.id!,
+    minGroupSize: settings.minGroupSize ?? 8,
+    minActiveUsers: settings.minActiveUsers ?? 5,
+    activityThresholdDays: settings.activityThresholdDays ?? 30,
+    combinationLogic: settings.combinationLogic ?? "DEPARTMENT",
+    enableGrouping: settings.enableGrouping ?? true,
+    activityRequirements: settings.activityRequirements ?? null, // Ensure null if undefined
   };
 }
 
@@ -58,6 +61,7 @@ export async function GET() {
           activityThresholdDays: 30,
           combinationLogic: "DEPARTMENT",
           enableGrouping: true,
+          activityRequirements: null, // Default to null
         },
       });
     }
