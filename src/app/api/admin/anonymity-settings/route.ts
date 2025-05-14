@@ -29,7 +29,7 @@ type AnonymitySettingsResponse = {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettings // Use Prisma model type
+  settings: Prisma.anonymitySettings // Use the correct type from Prisma
 ): AnonymitySettingsResponse {
   return {
     id: settings.id!,
