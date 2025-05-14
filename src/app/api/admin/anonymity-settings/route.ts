@@ -30,7 +30,7 @@ function formatAnonymitySettingsResponse(
   settings: Prisma.AnonymitySettingsCreateInput
 ): AnonymitySettingsResponse {
   return {
-    id: settings.id,
+    id: settings.id!, // Non-null assertion added
     minGroupSize: settings.minGroupSize,
     minActiveUsers: settings.minActiveUsers,
     activityThresholdDays: settings.activityThresholdDays,
