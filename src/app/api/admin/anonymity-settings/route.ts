@@ -31,11 +31,11 @@ function formatAnonymitySettingsResponse(
 ): AnonymitySettingsResponse {
   return {
     id: settings.id!, // Non-null assertion added
-    minGroupSize: settings.minGroupSize,
-    minActiveUsers: settings.minActiveUsers,
-    activityThresholdDays: settings.activityThresholdDays,
-    combinationLogic: settings.combinationLogic,
-    enableGrouping: settings.enableGrouping,
+    minGroupSize: settings.minGroupSize ?? 8, // Provide default value
+    minActiveUsers: settings.minActiveUsers ?? 5, // Provide default value
+    activityThresholdDays: settings.activityThresholdDays ?? 30, // Provide default value
+    combinationLogic: settings.combinationLogic ?? "DEPARTMENT", // Provide default value
+    enableGrouping: settings.enableGrouping ?? true, // Provide default value
   };
 }
 
