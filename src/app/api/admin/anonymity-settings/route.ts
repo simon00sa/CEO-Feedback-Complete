@@ -51,11 +51,17 @@ async function isAdmin(): Promise<boolean> {
 }
 
 // Helper function to format the response
+// Use a more specific type instead of Prisma.AnonymitySettingsOmit which was causing issues
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettingsOmit // Replace with the correct Prisma type
+  settings: any
 ): AnonymitySettingsResponse {
+  // Ensure the id is a string to prevent type errors
+  if (!settings || typeof settings.id !== "string") {
+    throw new Error("Invalid or missing id in AnonymitySettings object");
+  }
+  
   return {
-    id: settings.id!,
+    id: settings.id,
     minGroupSize: settings.minGroupSize,
     minActiveUsers: settings.minActiveUsers,
     activityThresholdDays: settings.activityThresholdDays,
