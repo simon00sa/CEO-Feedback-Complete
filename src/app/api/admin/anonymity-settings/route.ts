@@ -44,7 +44,7 @@ async function isAdmin(): Promise<boolean> {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettingsUncheckedCreateInput // Use the correct Prisma type
+  settings: Prisma.AnonymitySettings // Use the correct Prisma model type
 ): AnonymitySettingsResponse {
   return {
     id: settings.id!,
@@ -102,14 +102,18 @@ export async function PUT(req: NextRequest) {
       if (existingSettings) {
         return transactionPrisma.anonymitySettings.update({
           where: { id: existingSettings.id },
-          data: validatedData,
+          data: {
+            ...validatedData,
+            activityRequirements:
+              validatedData.activityRequirements ?? Prisma.JsonNull, // Ensure Prisma.JsonNull for nullable JSON
+          },
         });
       }
 
       return transactionPrisma.anonymitySettings.create({
         data: {
           ...validatedData,
-          activityRequirements: Prisma.JsonNull, // Use Prisma.JsonNull for nullable JSON
+          activityRequirements: Prisma.JsonNull, // Ensure Prisma.JsonNull is used
         },
       });
     });
