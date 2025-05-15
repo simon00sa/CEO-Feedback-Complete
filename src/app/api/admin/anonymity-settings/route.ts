@@ -29,7 +29,7 @@ type AnonymitySettingsResponse = {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: any // Temporarily use `any` until the correct type is confirmed
+  settings: Prisma.AnonymitySettings // Use the correct Prisma model type
 ): AnonymitySettingsResponse {
   return {
     id: settings.id!,
@@ -61,7 +61,7 @@ export async function GET() {
           activityThresholdDays: 30,
           combinationLogic: "DEPARTMENT",
           enableGrouping: true,
-          activityRequirements: null, // Default to null
+          activityRequirements: Prisma.JsonNull, // Use Prisma.JsonNull for nullable JSON
         },
       });
     }
@@ -96,7 +96,10 @@ export async function PUT(req: NextRequest) {
       }
 
       return transactionPrisma.anonymitySettings.create({
-        data: validatedData,
+        data: {
+          ...validatedData,
+          activityRequirements: Prisma.JsonNull, // Ensure Prisma.JsonNull is used
+        },
       });
     });
 
