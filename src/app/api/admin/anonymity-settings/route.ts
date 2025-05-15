@@ -18,19 +18,6 @@ const AnonymitySettingsSchema = z.object({
   anonymityLevel: z.string().default("MEDIUM"),
 });
 
-// Define the type for database records that have additional fields
-type DbAnonymitySettings = {
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-  minGroupSize: number;
-  minActiveUsers: number;
-  activityThresholdDays: number;
-  combinationLogic: string;
-  enableGrouping: boolean;
-  activityRequirements: any;
-};
-
 // Define the type for the API response
 type AnonymitySettingsResponse = {
   id: string;
@@ -127,7 +114,7 @@ export async function GET() {
       // If we get an array back from raw query, get the first element
       const dbSettings: any = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
       
-      // Add the frontend fields manually - use 'as any' to bypass type checking
+      // Add the frontend fields manually - use 'any' to bypass type checking
       settings = {
         ...dbSettings,
         // These fields aren't in the database, so we add them manually
@@ -180,7 +167,7 @@ export async function PUT(req: NextRequest) {
       // If we get an array back from raw query, get the first element
       const dbSettings: any = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
       
-      // Add the frontend fields back - use 'as any' to bypass type checking
+      // Add the frontend fields back - use 'any' to bypass type checking
       settings = {
         ...dbSettings,
         // Add these fields that aren't in the database
@@ -217,7 +204,7 @@ export async function PUT(req: NextRequest) {
       // If we get an array back from raw query, get the first element
       const dbSettings: any = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
       
-      // Add the frontend fields - use 'as any' to bypass type checking completely
+      // Add the frontend fields - use 'any' to bypass type checking completely
       settings = {
         ...dbSettings,
         // Add these fields that aren't in the database
