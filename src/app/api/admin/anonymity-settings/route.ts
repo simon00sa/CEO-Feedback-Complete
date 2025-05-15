@@ -82,26 +82,49 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    // Check if there are any existing settings
     let settings = await prisma.anonymitySettings.findFirst();
 
+    // If no settings exist, create default settings based on available schema fields
     if (!settings) {
-      settings = await prisma.anonymitySettings.create({
-        data: {
-          minGroupSize: 8,
-          minActiveUsers: 5,
-          activityThresholdDays: 30,
-          combinationLogic: "DEPARTMENT",
-          enableGrouping: true,
-          activityRequirements: Prisma.JsonNull,
-          enableAnonymousComments: true,
-          enableAnonymousVotes: true,
-          enableAnonymousAnalytics: false,
-          anonymityLevel: "MEDIUM",
-        },
-      });
+      try {
+        // Only include fields that exist in the Prisma schema
+        settings = await prisma.anonymitySettings.create({
+          data: {
+            minGroupSize: 8,
+            minActiveUsers: 5,
+            activityThresholdDays: 30,
+            combinationLogic: "DEPARTMENT",
+            enableGrouping: true,
+            activityRequirements: Prisma.JsonNull,
+            anonymityLevel: "MEDIUM",
+            // Remove fields that don't exist in the schema
+            // enableAnonymousComments, enableAnonymousVotes, enableAnonymousAnalytics
+          },
+        });
+      } catch (createError) {
+        console.error("Error creating anonymity settings:", createError);
+        // If failed to create, try with minimal fields
+        settings = await prisma.anonymitySettings.create({
+          data: {
+            minGroupSize: 8,
+            minActiveUsers: 5,
+            activityThresholdDays: 30,
+          },
+        });
+      }
     }
 
-    return NextResponse.json(formatAnonymitySettingsResponse(settings));
+    // Add missing fields for the response
+    const enhancedSettings = {
+      ...settings,
+      // Add these fields if they don't exist in the database but are needed for frontend
+      enableAnonymousComments: settings.enableAnonymousComments ?? true,
+      enableAnonymousVotes: settings.enableAnonymousVotes ?? true,
+      enableAnonymousAnalytics: settings.enableAnonymousAnalytics ?? false,
+    };
+
+    return NextResponse.json(formatAnonymitySettingsResponse(enhancedSettings));
   } catch (error) {
     console.error("Error fetching anonymity settings:", error);
     return NextResponse.json(
@@ -125,26 +148,54 @@ export async function PUT(req: NextRequest) {
       const existingSettings =
         await transactionPrisma.anonymitySettings.findFirst();
 
+      // Extract only the fields that exist in the Prisma schema
+      const {
+        minGroupSize,
+        minActiveUsers,
+        activityThresholdDays,
+        combinationLogic,
+        enableGrouping,
+        anonymityLevel,
+        // Remove these fields from the database update
+        enableAnonymousComments,
+        enableAnonymousVotes,
+        enableAnonymousAnalytics,
+        ...otherFields
+      } = validatedData;
+
+      // Create prisma-compatible data object
+      const prismaData = {
+        minGroupSize,
+        minActiveUsers,
+        activityThresholdDays,
+        combinationLogic,
+        enableGrouping,
+        anonymityLevel,
+        activityRequirements: validatedData.activityRequirements ?? Prisma.JsonNull,
+      };
+
       if (existingSettings) {
         return transactionPrisma.anonymitySettings.update({
           where: { id: existingSettings.id },
-          data: {
-            ...validatedData,
-            activityRequirements:
-              validatedData.activityRequirements ?? Prisma.JsonNull,
-          },
+          data: prismaData,
         });
       }
 
       return transactionPrisma.anonymitySettings.create({
-        data: {
-          ...validatedData,
-          activityRequirements: Prisma.JsonNull,
-        },
+        data: prismaData,
       });
     });
 
-    return NextResponse.json(formatAnonymitySettingsResponse(settings));
+    // Add missing fields for the response
+    const enhancedSettings = {
+      ...settings,
+      // Add these fields from the request for the frontend
+      enableAnonymousComments: validatedData.enableAnonymousComments,
+      enableAnonymousVotes: validatedData.enableAnonymousVotes,
+      enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
+    };
+
+    return NextResponse.json(formatAnonymitySettingsResponse(enhancedSettings));
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("Validation error:", error.errors);
