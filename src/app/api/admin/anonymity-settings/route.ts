@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-// Remove the unused Prisma import since we're not using it
+// Import Prisma namespace but only for Prisma.JsonNull
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 // Define the schema for anonymity settings
@@ -93,7 +94,7 @@ export async function GET() {
             activityThresholdDays: 30,
             combinationLogic: "DEPARTMENT",
             enableGrouping: true,
-            activityRequirements: null,
+            activityRequirements: Prisma.JsonNull, // Use Prisma.JsonNull instead of null
             anonymityLevel: "MEDIUM"
           },
         });
@@ -203,7 +204,7 @@ export async function PUT(req: NextRequest) {
             activityThresholdDays: validatedData.activityThresholdDays,
             combinationLogic: validatedData.combinationLogic,
             enableGrouping: validatedData.enableGrouping,
-            activityRequirements: validatedData.activityRequirements ?? null,
+            activityRequirements: validatedData.activityRequirements ?? Prisma.JsonNull, // Use Prisma.JsonNull
             anonymityLevel: validatedData.anonymityLevel
           },
         });
