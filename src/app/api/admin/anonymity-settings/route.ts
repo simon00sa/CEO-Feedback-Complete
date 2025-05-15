@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+// Remove the unused Prisma import since we're not using it
 import { z } from "zod";
 
 // Define the schema for anonymity settings
