@@ -10,12 +10,14 @@
     "postinstall": "echo 'Running postinstall...' && prisma generate && echo 'Postinstall complete!'",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
+    "prisma:reset": "prisma generate --schema=./prisma/schema.prisma",
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "build:worker": "opennextjs-cloudflare",
     "preview": "opennextjs-cloudflare && wrangler dev",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv env.d.ts",
     "vercel:env:pull": "vercel env pull .env.local",
+    "vercel:build": "npx prisma generate --schema=./prisma/schema.prisma && pnpm build",
     "deploy": "vercel deploy --prod"
   },
   "prisma": {
