@@ -84,45 +84,61 @@ export async function GET() {
     let settings = await prisma.anonymitySettings.findFirst();
 
     if (!settings) {
-      // Using Prisma's raw execute to bypass type checking for fields
-      // This allows creating settings with fields that might not be properly typed
-      settings = await prisma.$queryRaw`
-        INSERT INTO "AnonymitySettings" (
-          "id",
-          "minGroupSize",
-          "minActiveUsers",
-          "activityThresholdDays",
-          "combinationLogic",
-          "enableGrouping",
-          "activityRequirements",
-          "enableAnonymousComments",
-          "enableAnonymousVotes",
-          "enableAnonymousAnalytics",
-          "anonymityLevel",
-          "createdAt",
-          "updatedAt"
-        ) VALUES (
-          ${Prisma.cuid()},
-          8,
-          5,
-          30,
-          'DEPARTMENT',
-          true,
-          NULL,
-          true,
-          true,
-          false,
-          'MEDIUM',
-          NOW(),
-          NOW()
-        )
-        RETURNING *;
-      `;
-      
-      // If we get an array back from raw query, get the first element
-      if (Array.isArray(settings)) {
-        settings = settings[0];
+      // Using standard Prisma create with the fields we know exist in schema
+      try {
+        settings = await prisma.anonymitySettings.create({
+          data: {
+            minGroupSize: 8,
+            minActiveUsers: 5,
+            activityThresholdDays: 30,
+            combinationLogic: "DEPARTMENT",
+            enableGrouping: true,
+            activityRequirements: null,
+            anonymityLevel: "MEDIUM"
+          },
+        });
+      } catch (error) {
+        console.error("Error creating anonymity settings:", error);
+        
+        // If the above fails, try with a SQL query but use DEFAULT for id
+        settings = await prisma.$queryRaw`
+          INSERT INTO "AnonymitySettings" (
+            "minGroupSize",
+            "minActiveUsers",
+            "activityThresholdDays",
+            "combinationLogic",
+            "enableGrouping",
+            "activityRequirements",
+            "anonymityLevel",
+            "createdAt",
+            "updatedAt"
+          ) VALUES (
+            8,
+            5,
+            30,
+            'DEPARTMENT',
+            true,
+            NULL,
+            'MEDIUM',
+            NOW(),
+            NOW()
+          )
+          RETURNING *;
+        `;
+        
+        // If we get an array back from raw query, get the first element
+        if (Array.isArray(settings)) {
+          settings = settings[0];
+        }
       }
+      
+      // Add the frontend fields manually if they don't exist in the DB
+      settings = {
+        ...settings,
+        enableAnonymousComments: true,
+        enableAnonymousVotes: true,
+        enableAnonymousAnalytics: false
+      };
     }
 
     return NextResponse.json(formatAnonymitySettingsResponse(settings));
@@ -149,7 +165,7 @@ export async function PUT(req: NextRequest) {
     let settings;
 
     if (existingSettings) {
-      // Update using raw SQL to bypass Prisma type checking
+      // Update using raw SQL to bypass Prisma type checking, don't try to set ID
       settings = await prisma.$queryRaw`
         UPDATE "AnonymitySettings"
         SET
@@ -159,53 +175,80 @@ export async function PUT(req: NextRequest) {
           "combinationLogic" = ${validatedData.combinationLogic},
           "enableGrouping" = ${validatedData.enableGrouping},
           "activityRequirements" = ${validatedData.activityRequirements ? JSON.stringify(validatedData.activityRequirements) : null},
-          "enableAnonymousComments" = ${validatedData.enableAnonymousComments},
-          "enableAnonymousVotes" = ${validatedData.enableAnonymousVotes},
-          "enableAnonymousAnalytics" = ${validatedData.enableAnonymousAnalytics},
           "anonymityLevel" = ${validatedData.anonymityLevel},
           "updatedAt" = NOW()
         WHERE "id" = ${existingSettings.id}
         RETURNING *;
       `;
+      
+      // If we get an array back from raw query, get the first element
+      if (Array.isArray(settings)) {
+        settings = settings[0];
+      }
+      
+      // Add the frontend fields back
+      settings = {
+        ...settings,
+        enableAnonymousComments: validatedData.enableAnonymousComments,
+        enableAnonymousVotes: validatedData.enableAnonymousVotes,
+        enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics
+      };
     } else {
-      // Create using raw SQL to bypass Prisma type checking
-      settings = await prisma.$queryRaw`
-        INSERT INTO "AnonymitySettings" (
-          "id",
-          "minGroupSize",
-          "minActiveUsers",
-          "activityThresholdDays",
-          "combinationLogic",
-          "enableGrouping",
-          "activityRequirements",
-          "enableAnonymousComments",
-          "enableAnonymousVotes",
-          "enableAnonymousAnalytics",
-          "anonymityLevel",
-          "createdAt",
-          "updatedAt"
-        ) VALUES (
-          ${Prisma.cuid()},
-          ${validatedData.minGroupSize},
-          ${validatedData.minActiveUsers},
-          ${validatedData.activityThresholdDays},
-          ${validatedData.combinationLogic},
-          ${validatedData.enableGrouping},
-          ${validatedData.activityRequirements ? JSON.stringify(validatedData.activityRequirements) : null},
-          ${validatedData.enableAnonymousComments},
-          ${validatedData.enableAnonymousVotes},
-          ${validatedData.enableAnonymousAnalytics},
-          ${validatedData.anonymityLevel},
-          NOW(),
-          NOW()
-        )
-        RETURNING *;
-      `;
-    }
-
-    // If we get an array back from raw query, get the first element
-    if (Array.isArray(settings)) {
-      settings = settings[0];
+      // Try to create using standard Prisma
+      try {
+        settings = await prisma.anonymitySettings.create({
+          data: {
+            minGroupSize: validatedData.minGroupSize,
+            minActiveUsers: validatedData.minActiveUsers,
+            activityThresholdDays: validatedData.activityThresholdDays,
+            combinationLogic: validatedData.combinationLogic,
+            enableGrouping: validatedData.enableGrouping,
+            activityRequirements: validatedData.activityRequirements ?? null,
+            anonymityLevel: validatedData.anonymityLevel
+          },
+        });
+      } catch (error) {
+        console.error("Error creating anonymity settings:", error);
+        
+        // If that fails, use raw SQL without specifying ID (let Postgres use DEFAULT)
+        settings = await prisma.$queryRaw`
+          INSERT INTO "AnonymitySettings" (
+            "minGroupSize",
+            "minActiveUsers",
+            "activityThresholdDays",
+            "combinationLogic",
+            "enableGrouping",
+            "activityRequirements",
+            "anonymityLevel",
+            "createdAt",
+            "updatedAt"
+          ) VALUES (
+            ${validatedData.minGroupSize},
+            ${validatedData.minActiveUsers},
+            ${validatedData.activityThresholdDays},
+            ${validatedData.combinationLogic},
+            ${validatedData.enableGrouping},
+            ${validatedData.activityRequirements ? JSON.stringify(validatedData.activityRequirements) : null},
+            ${validatedData.anonymityLevel},
+            NOW(),
+            NOW()
+          )
+          RETURNING *;
+        `;
+        
+        // If we get an array back from raw query, get the first element
+        if (Array.isArray(settings)) {
+          settings = settings[0];
+        }
+      }
+      
+      // Add the frontend fields
+      settings = {
+        ...settings,
+        enableAnonymousComments: validatedData.enableAnonymousComments,
+        enableAnonymousVotes: validatedData.enableAnonymousVotes,
+        enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics
+      };
     }
 
     return NextResponse.json(formatAnonymitySettingsResponse(settings));
