@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-// Export these icons so they can be used by parent components to create tabs
+// Export ALL three chart icons so they can be used by parent components
 export { BarChart3, PieChart, LineChart } from "lucide-react"
 
 interface AnalyticsCardProps {
