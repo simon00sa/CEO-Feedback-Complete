@@ -13,6 +13,10 @@ const AnonymitySettingsSchema = z.object({
   combinationLogic: z.string().default("DEPARTMENT"),
   enableGrouping: z.boolean().default(true),
   activityRequirements: z.any().optional(), // Accept any valid JSON
+  enableAnonymousComments: z.boolean().default(true),
+  enableAnonymousVotes: z.boolean().default(true),
+  enableAnonymousAnalytics: z.boolean().default(false),
+  anonymityLevel: z.string().default("MEDIUM"),
 });
 
 // Define the type for the response
@@ -23,7 +27,11 @@ type AnonymitySettingsResponse = {
   activityThresholdDays: number;
   combinationLogic: string;
   enableGrouping: boolean;
-  activityRequirements: unknown | null; // Nullable JSON value
+  activityRequirements: unknown | null;
+  enableAnonymousComments: boolean;
+  enableAnonymousVotes: boolean;
+  enableAnonymousAnalytics: boolean;
+  anonymityLevel: string;
 };
 
 // Helper function to check for admin privileges
@@ -44,16 +52,20 @@ async function isAdmin(): Promise<boolean> {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettingsOmit // Replace with the correct Prisma type
+  settings: Prisma.AnonymitySettings // Use the correct Prisma model type
 ): AnonymitySettingsResponse {
   return {
-    id: settings.id!,
-    minGroupSize: settings.minGroupSize ?? 8,
-    minActiveUsers: settings.minActiveUsers ?? 5,
-    activityThresholdDays: settings.activityThresholdDays ?? 30,
-    combinationLogic: settings.combinationLogic ?? "DEPARTMENT",
-    enableGrouping: settings.enableGrouping ?? true,
-    activityRequirements: settings.activityRequirements ?? null, // Ensure null if undefined
+    id: settings.id,
+    minGroupSize: settings.minGroupSize,
+    minActiveUsers: settings.minActiveUsers,
+    activityThresholdDays: settings.activityThresholdDays,
+    combinationLogic: settings.combinationLogic,
+    enableGrouping: settings.enableGrouping,
+    activityRequirements: settings.activityRequirements ?? null,
+    enableAnonymousComments: settings.enableAnonymousComments,
+    enableAnonymousVotes: settings.enableAnonymousVotes,
+    enableAnonymousAnalytics: settings.enableAnonymousAnalytics,
+    anonymityLevel: settings.anonymityLevel,
   };
 }
 
@@ -67,68 +79,4 @@ export async function GET() {
     let settings = await prisma.anonymitySettings.findFirst();
 
     if (!settings) {
-      settings = await prisma.anonymitySettings.create({
-        data: {
-          minGroupSize: 8,
-          minActiveUsers: 5,
-          activityThresholdDays: 30,
-          combinationLogic: "DEPARTMENT",
-          enableGrouping: true,
-          activityRequirements: Prisma.JsonNull, // Use Prisma.JsonNull for nullable JSON
-        },
-      });
-    }
-
-    return NextResponse.json(formatAnonymitySettingsResponse(settings));
-  } catch (error) {
-    console.error("Error fetching anonymity settings:", error);
-    return NextResponse.json({ error: "Failed to fetch anonymity settings." }, { status: 500 });
-  }
-}
-
-// PUT /api/admin/anonymity-settings - Update anonymity settings
-export async function PUT(req: NextRequest) {
-  try {
-    if (!(await isAdmin())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-
-    const body = await req.json();
-    const validatedData = AnonymitySettingsSchema.parse(body);
-
-    const settings = await prisma.$transaction(async (transactionPrisma) => {
-      const existingSettings = await transactionPrisma.anonymitySettings.findFirst();
-
-      if (existingSettings) {
-        return transactionPrisma.anonymitySettings.update({
-          where: { id: existingSettings.id },
-          data: {
-            ...validatedData,
-            activityRequirements:
-              validatedData.activityRequirements ?? Prisma.JsonNull, // Ensure Prisma.JsonNull for nullable JSON
-          },
-        });
-      }
-
-      return transactionPrisma.anonymitySettings.create({
-        data: {
-          ...validatedData,
-          activityRequirements: Prisma.JsonNull, // Ensure Prisma.JsonNull is used
-        },
-      });
-    });
-
-    return NextResponse.json(formatAnonymitySettingsResponse(settings));
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error("Validation error:", error.errors);
-      return NextResponse.json(
-        { error: "Validation error", details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    console.error("Error updating anonymity settings:", error);
-    return NextResponse.json({ error: "Failed to update anonymity settings." }, { status: 500 });
-  }
-}
+      settings = await prisma
