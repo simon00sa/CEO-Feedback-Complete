@@ -11,7 +11,7 @@ const TeamCreateSchema = z.object({
   displayGroup: z.string().optional(),
 });
 
-// Helper to check for Admin role - removed the unused request parameter
+// Helper to check for Admin role
 async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
   
@@ -30,22 +30,13 @@ async function isAdmin(): Promise<boolean> {
 // GET /api/admin/teams - Fetch all teams
 export async function GET() {
   try {
-    // Check admin permissions
     if (!(await isAdmin())) {
       return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
     }
     
     const teams = await prisma.team.findMany({
-      orderBy: {
-        name: 'asc',
-      },
-      include: { 
-        _count: { 
-          select: { 
-            members: true 
-          } 
-        } 
-      }
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { members: true } } }
     });
     
     return NextResponse.json(teams, { status: 200 });
@@ -58,12 +49,10 @@ export async function GET() {
 // POST /api/admin/teams - Create a new team
 export async function POST(request: NextRequest) {
   try {
-    // Check admin permissions
     if (!(await isAdmin())) {
       return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
     }
     
-    // Parse and validate input
     const body = await request.json();
     const validatedData = TeamCreateSchema.parse(body);
     
@@ -71,24 +60,14 @@ export async function POST(request: NextRequest) {
     const trimmedName = name.trim();
     const trimmedDisplayGroup = displayGroup?.trim() || trimmedName;
     
-    // Check if team name already exists
     const existingTeam = await prisma.team.findFirst({
-      where: { 
-        name: { 
-          equals: trimmedName, 
-          mode: 'insensitive' 
-        } 
-      }
+      where: { name: { equals: trimmedName, mode: 'insensitive' } }
     });
     
     if (existingTeam) {
-      return NextResponse.json(
-        { error: `Team with name "${trimmedName}" already exists.` }, 
-        { status: 409 }
-      ); 
+      return NextResponse.json({ error: `Team with name "${trimmedName}" already exists.` }, { status: 409 });
     }
     
-    // Create the new team
     const newTeam = await prisma.team.create({
       data: {
         name: trimmedName,
@@ -101,23 +80,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newTeam, { status: 201 });
   } catch (error) {
     console.error("Error creating team:", error);
-    
-    // Handle validation errors
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors }, 
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 });
     }
-    
-    // Handle Prisma unique constraint errors - properly type check for Prisma errors
-    if (typeof error === 'object' && error !== null && 'code' in error && (error as any).code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A team with this name already exists.' }, 
-        { status: 409 }
-      );
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json({ error: 'A team with this name already exists.' }, { status: 409 });
     }
-    
     return NextResponse.json({ error: 'Failed to create team.' }, { status: 500 });
   }
 }
@@ -125,12 +93,10 @@ export async function POST(request: NextRequest) {
 // PUT /api/admin/teams/[teamId] - Update a team
 export async function PUT(request: NextRequest) {
   try {
-    // Check admin permissions
     if (!(await isAdmin())) {
       return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
     }
     
-    // Extract teamId from URL
     const url = new URL(request.url);
     const teamId = url.pathname.split('/').pop();
     
@@ -138,7 +104,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Team ID is required.' }, { status: 400 });
     }
     
-    // Parse and validate input
     const body = await request.json();
     const validatedData = TeamCreateSchema.parse(body);
     
@@ -146,33 +111,21 @@ export async function PUT(request: NextRequest) {
     const trimmedName = name.trim();
     const trimmedDisplayGroup = displayGroup?.trim() || trimmedName;
     
-    // Check if team exists
-    const existingTeam = await prisma.team.findUnique({
-      where: { id: teamId }
-    });
+    const existingTeam = await prisma.team.findUnique({ where: { id: teamId } });
     
     if (!existingTeam) {
       return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
     }
     
-    // Check if name conflicts with another team
     if (trimmedName !== existingTeam.name) {
       const nameConflict = await prisma.team.findFirst({
-        where: { 
-          name: { equals: trimmedName, mode: 'insensitive' },
-          id: { not: teamId }
-        }
+        where: { name: { equals: trimmedName, mode: 'insensitive' }, id: { not: teamId } }
       });
-      
       if (nameConflict) {
-        return NextResponse.json(
-          { error: `Team with name "${trimmedName}" already exists.` }, 
-          { status: 409 }
-        );
+        return NextResponse.json({ error: `Team with name "${trimmedName}" already exists.` }, { status: 409 });
       }
     }
     
-    // Update the team
     const updatedTeam = await prisma.team.update({
       where: { id: teamId },
       data: {
@@ -184,22 +137,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedTeam);
   } catch (error) {
     console.error("Error updating team:", error);
-    
-    // Handle validation errors
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors }, 
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 });
     }
-    
-    // Handle Prisma errors with proper type checking
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
-      }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
     }
-    
     return NextResponse.json({ error: 'Failed to update team.' }, { status: 500 });
   }
 }
@@ -207,12 +150,10 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/admin/teams/[teamId] - Delete a team
 export async function DELETE(request: NextRequest) {
   try {
-    // Check admin permissions
     if (!(await isAdmin())) {
       return NextResponse.json({ error: 'Forbidden: Requires Admin role.' }, { status: 403 });
     }
     
-    // Extract teamId from URL
     const url = new URL(request.url);
     const teamId = url.pathname.split('/').pop();
     
@@ -220,47 +161,27 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Team ID is required.' }, { status: 400 });
     }
     
-    // Check if team exists
     const existingTeam = await prisma.team.findUnique({
       where: { id: teamId },
-      include: { 
-        _count: { 
-          select: { members: true } 
-        } 
-      }
+      include: { _count: { select: { members: true } } }
     });
     
     if (!existingTeam) {
       return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
     }
     
-    // Check if team has members
     if (existingTeam._count.members > 0) {
-      return NextResponse.json(
-        { 
-          error: 'Cannot delete team with active members. Please reassign members first.',
-          memberCount: existingTeam._count.members
-        }, 
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Cannot delete team with active members. Please reassign members first.', memberCount: existingTeam._count.members }, { status: 400 });
     }
     
-    // Delete the team
-    await prisma.team.delete({
-      where: { id: teamId }
-    });
+    await prisma.team.delete({ where: { id: teamId } });
     
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting team:", error);
-    
-    // Handle Prisma errors with proper type checking
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
-      }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ error: 'Team not found.' }, { status: 404 });
     }
-    
     return NextResponse.json({ error: 'Failed to delete team.' }, { status: 500 });
   }
 }
