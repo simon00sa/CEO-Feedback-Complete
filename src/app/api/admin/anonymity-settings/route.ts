@@ -108,16 +108,17 @@ export async function GET() {
       `;
       
       // If we get an array back from raw query, get the first element
-      settings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
+      const dbSettings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
       
-      // Add the frontend fields manually
+      // Use type assertion to add the frontend fields manually
       settings = {
-        ...settings,
+        ...dbSettings,
+        // These fields aren't in the database, so we add them manually
         enableAnonymousComments: true,
         enableAnonymousVotes: true,
         enableAnonymousAnalytics: false,
         anonymityLevel: "MEDIUM"
-      };
+      } as AnonymitySettingsResponse; // Type assertion to tell TypeScript we know what we're doing
     }
 
     return NextResponse.json(formatAnonymitySettingsResponse(settings));
@@ -160,16 +161,17 @@ export async function PUT(req: NextRequest) {
       `;
       
       // If we get an array back from raw query, get the first element
-      settings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
+      const dbSettings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
       
-      // Add the frontend fields back
+      // Use type assertion to add the frontend fields back
       settings = {
-        ...settings,
+        ...dbSettings,
+        // Add these fields that aren't in the database
         enableAnonymousComments: validatedData.enableAnonymousComments,
         enableAnonymousVotes: validatedData.enableAnonymousVotes,
         enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
         anonymityLevel: validatedData.anonymityLevel
-      };
+      } as AnonymitySettingsResponse; // Type assertion
     } else {
       // Use raw SQL without specifying fields that might not exist in schema
       const rawSettings = await prisma.$queryRaw`
@@ -196,16 +198,17 @@ export async function PUT(req: NextRequest) {
       `;
       
       // If we get an array back from raw query, get the first element
-      settings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
+      const dbSettings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
       
-      // Add the frontend fields
+      // Use type assertion to add the frontend fields
       settings = {
-        ...settings,
+        ...dbSettings,
+        // Add these fields that aren't in the database
         enableAnonymousComments: validatedData.enableAnonymousComments,
         enableAnonymousVotes: validatedData.enableAnonymousVotes,
         enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
         anonymityLevel: validatedData.anonymityLevel
-      };
+      } as AnonymitySettingsResponse; // Type assertion
     }
 
     return NextResponse.json(formatAnonymitySettingsResponse(settings));
