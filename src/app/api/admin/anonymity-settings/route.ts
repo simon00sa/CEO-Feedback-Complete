@@ -12,7 +12,7 @@ const AnonymitySettingsSchema = z.object({
   activityThresholdDays: z.number().default(30),
   combinationLogic: z.string().default("DEPARTMENT"),
   enableGrouping: z.boolean().default(true),
-  activityRequirements: z.any().optional(), // Accept any valid JSON
+  activityRequirements: z.any().optional(),
   enableAnonymousComments: z.boolean().default(true),
   enableAnonymousVotes: z.boolean().default(true),
   enableAnonymousAnalytics: z.boolean().default(false),
@@ -34,7 +34,7 @@ type AnonymitySettingsResponse = {
   anonymityLevel: string;
 };
 
-// Helper function to check for admin privileges
+// Helper function to check admin privileges
 async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
 
@@ -52,7 +52,7 @@ async function isAdmin(): Promise<boolean> {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettings // Use the correct Prisma model type
+  settings: Prisma.AnonymitySettings
 ): AnonymitySettingsResponse {
   return {
     id: settings.id,
@@ -79,4 +79,79 @@ export async function GET() {
     let settings = await prisma.anonymitySettings.findFirst();
 
     if (!settings) {
-      settings = await prisma
+      settings = await prisma.anonymitySettings.create({
+        data: {
+          minGroupSize: 8,
+          minActiveUsers: 5,
+          activityThresholdDays: 30,
+          combinationLogic: "DEPARTMENT",
+          enableGrouping: true,
+          activityRequirements: Prisma.JsonNull,
+          enableAnonymousComments: true,
+          enableAnonymousVotes: true,
+          enableAnonymousAnalytics: false,
+          anonymityLevel: "MEDIUM",
+        },
+      });
+    }
+
+    return NextResponse.json(formatAnonymitySettingsResponse(settings));
+  } catch (error) {
+    console.error("Error fetching anonymity settings:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch anonymity settings." },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/admin/anonymity-settings - Update anonymity settings
+export async function PUT(req: NextRequest) {
+  try {
+    if (!(await isAdmin())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const validatedData = AnonymitySettingsSchema.parse(body);
+
+    const settings = await prisma.$transaction(async (transactionPrisma) => {
+      const existingSettings =
+        await transactionPrisma.anonymitySettings.findFirst();
+
+      if (existingSettings) {
+        return transactionPrisma.anonymitySettings.update({
+          where: { id: existingSettings.id },
+          data: {
+            ...validatedData,
+            activityRequirements:
+              validatedData.activityRequirements ?? Prisma.JsonNull,
+          },
+        });
+      }
+
+      return transactionPrisma.anonymitySettings.create({
+        data: {
+          ...validatedData,
+          activityRequirements: Prisma.JsonNull,
+        },
+      });
+    });
+
+    return NextResponse.json(formatAnonymitySettingsResponse(settings));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Validation error:", error.errors);
+      return NextResponse.json(
+        { error: "Validation error", details: error.errors },
+        { status: 400 }
+      );
+    }
+
+    console.error("Error updating anonymity settings:", error);
+    return NextResponse.json(
+      { error: "Failed to update anonymity settings." },
+      { status: 500 }
+    );
+  }
+}
