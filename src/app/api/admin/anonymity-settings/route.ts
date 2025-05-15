@@ -52,10 +52,10 @@ async function isAdmin(): Promise<boolean> {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettings
+  settings: Prisma.AnonymitySettingsOmit // Replace with the correct Prisma type
 ): AnonymitySettingsResponse {
   return {
-    id: settings.id,
+    id: settings.id!,
     minGroupSize: settings.minGroupSize,
     minActiveUsers: settings.minActiveUsers,
     activityThresholdDays: settings.activityThresholdDays,
