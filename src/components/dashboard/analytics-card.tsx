@@ -37,7 +37,10 @@ export function AnalyticsCard({
   footerText,
   footerLink
 }: AnalyticsCardProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab || (tabs && tabs[0]?.id))
+  // Ensure activeTab is always a string by providing a fallback empty string
+  const [activeTab, setActiveTab] = useState<string>(
+    defaultTab || (tabs && tabs[0]?.id) || ""
+  );
   
   return (
     <Card className={cn("", className)}>
