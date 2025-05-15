@@ -26,7 +26,7 @@ type AnonymitySettingsResponse = {
   activityRequirements: unknown | null; // Nullable JSON value
 };
 
-// Helper function to check admin privileges
+// Helper function to check for admin privileges
 async function isAdmin(): Promise<boolean> {
   const session = await getServerSession(authOptions);
 
@@ -44,7 +44,7 @@ async function isAdmin(): Promise<boolean> {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: Prisma.AnonymitySettings // Use the correct Prisma model type
+  settings: Prisma.AnonymitySettingsOmit // Replace with the correct Prisma type
 ): AnonymitySettingsResponse {
   return {
     id: settings.id!,
