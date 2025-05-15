@@ -1,13 +1,10 @@
 "use client"
-
 import { useState } from "react"
 import { 
-  BarChart3, 
   PieChart, 
   LineChart,
   ArrowUpRight
 } from "lucide-react"
-
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -42,7 +39,7 @@ export function AnalyticsCard({
   footerLink
 }: AnalyticsCardProps) {
   const [activeTab, setActiveTab] = useState(defaultTab || (tabs && tabs[0]?.id))
-
+  
   return (
     <Card className={cn("", className)}>
       <CardHeader className="pb-2">
