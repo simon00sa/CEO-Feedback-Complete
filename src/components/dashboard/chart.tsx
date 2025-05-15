@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+// Remove the unused useState import
 import { 
   Area, 
   AreaChart, 
