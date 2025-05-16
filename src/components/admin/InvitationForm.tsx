@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,26 +22,42 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+// Define role type for better type safety
+type RoleName = "Staff" | "Leadership" | "Admin";
+
 // Define the form schema using Zod
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   roleName: z.enum(["Staff", "Leadership", "Admin"], { required_error: "Role is required." }),
 });
 
+// Define response types
+interface ErrorResponse {
+  error?: string;
+}
+
+interface SuccessResponse {
+  email: string;
+  id?: string;
+}
+
+// Define the form values type using zod inference
+type FormValues = z.infer<typeof formSchema>;
+
 export function InvitationForm() {
   const [isLoading, setIsLoading] = useState(false);
-
+  
   // Initialize the form with react-hook-form and Zod resolver
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
-      roleName: undefined, // Set default to undefined for placeholder
+      roleName: undefined as unknown as RoleName, // Type assertion for placeholder
     },
   });
-
+  
   // Handle form submission
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormValues) {
     setIsLoading(true);
     try {
       const response = await fetch('/api/admin/invitations', {
@@ -52,24 +67,24 @@ export function InvitationForm() {
         },
         body: JSON.stringify(values),
       });
-
+      
       if (!response.ok) {
-        const errorData: { error?: string } = await response.json(); // Properly type errorData
+        const errorData: ErrorResponse = await response.json();
         throw new Error(errorData.error || 'Failed to create invitation');
       }
-
-      const result: { email: string } = await response.json(); // Properly type result
+      
+      const result: SuccessResponse = await response.json();
       toast.success(`Invitation created successfully for ${result.email}`);
       form.reset(); // Reset form after successful submission
-
-    } catch (error: any) {
-      console.error("Submission error:", error);
-      toast.error(error.message || "An unexpected error occurred.");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      console.error("Submission error:", errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   }
-
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
