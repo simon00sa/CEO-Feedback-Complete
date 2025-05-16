@@ -14,14 +14,15 @@ export async function GET(request: Request) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: { select: { name: true } } }, // Select the role name
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || !user.role) {
+      return NextResponse.json({ error: "User or role not found" }, { status: 404 });
     }
 
-    const isAdmin = user.role === "ADMIN";
+    // Compare the role name to "Admin" (case-sensitive, check your DB for exact value)
+    const isAdmin = user.role.name === "Admin";
     return NextResponse.json({ isAdmin });
   } catch (error) {
     console.error("Error checking admin status:", error);
