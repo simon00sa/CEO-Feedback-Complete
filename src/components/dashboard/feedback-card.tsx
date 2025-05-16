@@ -1,8 +1,10 @@
 "use client"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+
+// Define status type explicitly for better type checking and IDE support
+type FeedbackStatus = 'new' | 'in-progress' | 'resolved' | 'escalated'
 
 interface FeedbackCardProps {
   id: string
@@ -10,7 +12,7 @@ interface FeedbackCardProps {
   category: string
   priority: number
   department: string
-  status: 'new' | 'in-progress' | 'resolved' | 'escalated'
+  status: FeedbackStatus
   createdAt: string
   className?: string
   onClick?: () => void
