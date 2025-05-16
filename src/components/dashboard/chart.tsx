@@ -1,6 +1,5 @@
 "use client"
 
-// Remove the unused useState import
 import { 
   Area, 
   AreaChart, 
@@ -22,10 +21,15 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
+// Improved type definition for chart data
+interface ChartDataPoint {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
 interface ChartProps {
   title: string
   description?: string
-  data: any[]
+  data: ChartDataPoint[]
   type: 'area' | 'bar' | 'line' | 'pie'
   dataKey: string
   categories?: string[]
