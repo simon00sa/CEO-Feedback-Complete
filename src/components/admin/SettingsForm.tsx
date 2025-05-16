@@ -12,6 +12,11 @@ interface AppSettings {
   allowAnonymousFeedback: boolean;
 }
 
+// Define error response interface
+interface ErrorResponse {
+  error?: string;
+}
+
 export function SettingsForm() {
   const [settings, setSettings] = useState<AppSettings>({
     siteName: '',
@@ -30,15 +35,16 @@ export function SettingsForm() {
       try {
         const response = await fetch('/api/admin/settings');
         if (!response.ok) {
-          const errorData: { error?: string } = await response.json();
+          const errorData: ErrorResponse = await response.json();
           throw new Error(errorData.error || 'Failed to fetch settings');
         }
         const data: AppSettings = await response.json();
         setSettings(data);
-      } catch (err: any) {
-        console.error('Error fetching settings:', err);
-        setError(err.message || 'An unexpected error occurred.');
-        toast.error(err.message || 'Failed to load settings.');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        console.error('Error fetching settings:', errorMessage);
+        setError(errorMessage);
+        toast.error(errorMessage || 'Failed to load settings.');
       } finally {
         setIsLoading(false);
       }
@@ -47,12 +53,12 @@ export function SettingsForm() {
     fetchSettings();
   }, []);
 
-  // Handle input changes
+  // Handle input changes with proper typing
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = event.target;
+    const { name, value, type, checked } = event.target;
     setSettings((prevSettings) => ({
       ...prevSettings,
-      [name]: type === 'checkbox' ? (event.target as HTMLInputElement).checked : value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
@@ -72,15 +78,16 @@ export function SettingsForm() {
       });
 
       if (!response.ok) {
-        const errorData: { error?: string } = await response.json();
+        const errorData: ErrorResponse = await response.json();
         throw new Error(errorData.error || 'Failed to save settings');
       }
 
       toast.success('Settings saved successfully!');
-    } catch (err: any) {
-      console.error('Error saving settings:', err);
-      setError(err.message || 'An unexpected error occurred.');
-      toast.error(err.message || 'Failed to save settings.');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      console.error('Error saving settings:', errorMessage);
+      setError(errorMessage);
+      toast.error(errorMessage || 'Failed to save settings.');
     } finally {
       setIsSaving(false);
     }
