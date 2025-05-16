@@ -1,5 +1,5 @@
 "use client"
-import { useRef, KeyboardEvent } from "react"
+import { useRef } from "react"
 import { Send, Paperclip, Mic } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -23,14 +23,14 @@ export function ChatInput({
   placeholder = "Type your message..." 
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       onSend()
     }
   }
-
+  
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value)
     
@@ -40,7 +40,7 @@ export function ChatInput({
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
     }
   }
-
+  
   return (
     <div className={cn(
       "flex flex-col p-4 border-t border-border bg-card",
