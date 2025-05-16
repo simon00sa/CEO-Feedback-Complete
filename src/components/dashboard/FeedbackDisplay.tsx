@@ -28,7 +28,7 @@ interface FeedbackAdmin extends FeedbackBase {
   content: string;
   submittedFromIP?: string | null;
   userAgent?: string | null;
-  processingLog?: any | null; // Prisma Json type
+  processingLog?: Record<string, any> | null; // Improved typing for Prisma Json type
 }
 
 interface FeedbackLeadership extends FeedbackBase {}
@@ -40,8 +40,10 @@ interface ErrorResponse {
   error?: string;
 }
 
+type UserRole = 'Admin' | 'Leadership';
+
 interface FeedbackDisplayProps {
-  actualUserRole: 'Admin' | 'Leadership'; // The real role of the logged-in user
+  actualUserRole: UserRole; // The real role of the logged-in user
 }
 
 export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
@@ -49,7 +51,7 @@ export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // State for role simulation, defaults to the user's actual role
-  const [viewAsRole, setViewAsRole] = useState<'Admin' | 'Leadership'>(actualUserRole);
+  const [viewAsRole, setViewAsRole] = useState<UserRole>(actualUserRole);
 
   useEffect(() => {
     async function fetchFeedback() {
@@ -66,10 +68,11 @@ export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
         // Important: The fetched data structure depends on the *actual* user role used by the API
         // The viewAsRole state only controls how we *display* it
         setFeedbackList(data);
-      } catch (err: any) {
-        console.error("Error fetching feedback:", err);
-        setError(err.message || 'An unexpected error occurred.');
-        toast.error(err.message || 'Failed to load feedback.');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        console.error("Error fetching feedback:", errorMessage);
+        setError(errorMessage);
+        toast.error(errorMessage || 'Failed to load feedback.');
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +98,7 @@ export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
     return <p>No feedback submitted yet.</p>;
   }
 
-  const handleViewChange = (value: 'Admin' | 'Leadership') => {
+  const handleViewChange = (value: UserRole) => {
     setViewAsRole(value);
   };
 
@@ -134,10 +137,10 @@ export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
             </CardHeader>
             <CardContent>
               {/* Conditional display based on viewAsRole */}
-              {viewAsRole === 'Admin' && (feedback as FeedbackAdmin).content && (
+              {viewAsRole === 'Admin' && 'content' in feedback && (
                 <div className="mb-4 p-3 bg-muted rounded">
                   <h4 className="font-semibold mb-1">Raw Content (Admin View):</h4>
-                  <p className="text-sm">{(feedback as FeedbackAdmin).content}</p>
+                  <p className="text-sm">{feedback.content}</p>
                 </div>
               )}
               {feedback.analysisSummary ? (
@@ -159,13 +162,13 @@ export function FeedbackDisplay({ actualUserRole }: FeedbackDisplayProps) {
                 </div>
               )}
               {/* Conditional display based on viewAsRole */}
-              {viewAsRole === 'Admin' && (
+              {viewAsRole === 'Admin' && 'submittedFromIP' in feedback && (
                 <details className="mt-4 text-xs text-muted-foreground">
                   <summary>Diagnostic Info (Admin View)</summary>
                   <ul className="list-disc pl-5 mt-1">
-                    <li>IP: {(feedback as FeedbackAdmin).submittedFromIP || 'N/A'}</li>
-                    <li>User Agent: {(feedback as FeedbackAdmin).userAgent || 'N/A'}</li>
-                    <li>Processing Log: {JSON.stringify((feedback as FeedbackAdmin).processingLog) || 'N/A'}</li>
+                    <li>IP: {feedback.submittedFromIP || 'N/A'}</li>
+                    <li>User Agent: {feedback.userAgent || 'N/A'}</li>
+                    <li>Processing Log: {JSON.stringify(feedback.processingLog) || 'N/A'}</li>
                   </ul>
                 </details>
               )}
