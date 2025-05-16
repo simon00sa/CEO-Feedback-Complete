@@ -8,58 +8,12 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["@prisma/client", "@prisma/engines"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 [context.production.environment]
-  # Updated Node version to a stable release that exists
-  NODE_VERSION = "20.11.1"  # Changed from 22.15.1 as Node 22 isn't released yet
+  NODE_VERSION = "20.11.1"
   PNPM_VERSION = "10.11.0"
-
-# Add build settings for better Prisma handling
-[build.environment]
-  NPM_FLAGS = "--no-optional"
-
-# Add headers for security
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'"
-
-# Add redirects for SPA
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
-  conditions = {Role = ["admin"]}
-
-# Add build plugins array
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["@prisma/client", "@prisma/engines"]
-
-# Add specific environment variable handling
-[context.production]
-  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && NODE_ENV=production pnpm prisma generate && pnpm build"
-
-[context.deploy-preview]
-  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma generate && pnpm build"
-
-# Add cache settings
-[[plugins]]
-  package = "netlify-plugin-cache"
-  [plugins.inputs]
-    paths = [
-      "node_modules/.cache",
-      ".next/cache",
-      ".prisma"
-    ]
