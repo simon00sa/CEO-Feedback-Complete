@@ -1,13 +1,13 @@
 [build]
   command = "pnpm install --no-frozen-lockfile && pnpm build"
-  publish = "dist"  # Adjust to your Next.js output directory (e.g., .next if not customized)
+  publish = ".next"  # Default Next.js output directory
 
 [dev]
   command = "pnpm dev"
   port = 3000
 
 [functions]
-  directory = "netlify/functions"  # Optional, if you have serverless functions
+  directory = "netlify/functions"  # Optional, adjust if used
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
