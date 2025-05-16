@@ -1,215 +1,247 @@
-import { OpenAI } from 'openai';
-import { EdenAI as EdenAIClient } from 'edenai-js';
-import { Redis } from '@upstash/redis';
-import { Ratelimit } from '@upstash/ratelimit';
-import { kv } from '@vercel/kv';
-import { FeedbackEntry } from '@prisma/client';
+import { OpenAI } from "openai";
+import { EdenAI as EdenAIClient } from "edenai";
+import { PrismaClient } from "@prisma/client";
+import { LRUCache } from "lru-cache";
+import { z } from "zod";
 
-interface AnalysisResult {
-  sentiment: string;
-  topics: string[];
-  summary: string;
-  actionableInsights: string[];
-}
+// Initialize Prisma client
+const prisma = new PrismaClient();
+
+// Define cache options
+const cacheOptions = {
+  max: 100, // Maximum number of items to store in cache
+  ttl: 1000 * 60 * 60, // 1 hour TTL
+};
+
+// Define response schemas for validation
+const feedbackAnalysisSchema = z.object({
+  sentiment: z.string(),
+  topics: z.array(z.string()),
+  summary: z.string(),
+  actionItems: z.array(z.string()),
+});
+
+const chatResponseSchema = z.object({
+  response: z.string(),
+});
 
 class AIImplementation {
   private openai: OpenAI;
   private edenai: typeof EdenAIClient;
-  private redis: Redis;
-  private ratelimit: Ratelimit;
-  private cache: Map<string, any>;
-  private cacheTimeout: number = 1000 * 60 * 60; // 1 hour
+  private cache: LRUCache<string, any>;
+  private isInitialized: boolean = false;
 
   constructor() {
-    // Initialize OpenAI
+    // Initialize cache
+    this.cache = new LRUCache(cacheOptions);
+    
+    // Initialize OpenAI client
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: process.env.OPENAI_API_KEY || "",
     });
-
-    // Initialize EdenAI
+    
+    // Initialize EdenAI client
     this.edenai = new EdenAIClient({
-      api_key: process.env.EDEN_AI_API_KEY,
+      apiKey: process.env.EDENAI_API_KEY || "",
     });
-
-    // Initialize Redis if credentials are available
-    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-      this.redis = new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      });
-
-      // Initialize rate limiting
-      this.ratelimit = new Ratelimit({
-        redis: this.redis,
-        limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 requests per minute
-      });
-    }
-
-    // Initialize in-memory cache
-    this.cache = new Map();
+    
+    this.isInitialized = true;
   }
 
-  private async checkRateLimit(identifier: string): Promise<void> {
-    if (this.ratelimit) {
-      const result = await this.ratelimit.limit(identifier);
-      if (!result.success) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-    }
-  }
-
-  private getCacheKey(method: string, params: any): string {
-    return `${method}:${JSON.stringify(params)}`;
-  }
-
-  private async getFromCache<T>(key: string): Promise<T | null> {
-    // Try in-memory cache first
-    const memoryCache = this.cache.get(key);
-    if (memoryCache && memoryCache.timestamp > Date.now() - this.cacheTimeout) {
-      return memoryCache.data;
-    }
-
-    // Try Redis cache if available
-    if (this.redis) {
-      const redisCache = await this.redis.get(key);
-      if (redisCache) {
-        // Update in-memory cache
-        this.cache.set(key, {
-          data: redisCache,
-          timestamp: Date.now(),
-        });
-        return redisCache as T;
-      }
-    }
-
-    return null;
-  }
-
-  private async setCache(key: string, data: any): Promise<void> {
-    // Set in-memory cache
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-    });
-
-    // Set Redis cache if available
-    if (this.redis) {
-      await this.redis.set(key, data, {
-        ex: this.cacheTimeout / 1000, // Convert to seconds for Redis
-      });
-    }
-  }
-
-  async analyzeFeedback(feedback: FeedbackEntry[]): Promise<AnalysisResult> {
+  /**
+   * Analyzes feedback text to extract sentiment, topics, and action items
+   */
+  public async analyzeFeedback(feedbackText: string): Promise<{
+    sentiment: string;
+    topics: string[];
+    summary: string;
+    actionItems: string[];
+  }> {
     try {
-      await this.checkRateLimit('analyzeFeedback');
-
-      const cacheKey = this.getCacheKey('analyzeFeedback', feedback);
-      const cachedResult = await this.getFromCache<AnalysisResult>(cacheKey);
-      if (cachedResult) return cachedResult;
-
-      // Prepare feedback text for analysis
-      const feedbackText = feedback
-        .map((entry) => `${entry.content} (Rating: ${entry.rating})`)
-        .join('\n');
-
-      // First try OpenAI
-      try {
-        const completion = await this.openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'Analyze the following feedback entries and provide sentiment, topics, summary, and actionable insights.',
-            },
-            {
-              role: 'user',
-              content: feedbackText,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 500,
-        });
-
-        const result = JSON.parse(completion.choices[0].message.content || '{}');
-        await this.setCache(cacheKey, result);
-        return result;
-      } catch (error) {
-        console.error('OpenAI analysis failed, falling back to EdenAI:', error);
+      // Check if initialized
+      if (!this.isInitialized) {
+        throw new Error("AI service not initialized");
       }
 
-      // Fallback to EdenAI
+      // Generate cache key
+      const cacheKey = `feedback_analysis_${Buffer.from(feedbackText).toString('base64')}`;
+      
+      // Check cache first
+      const cachedResult = this.cache.get(cacheKey);
+      if (cachedResult) {
+        console.log("Using cached feedback analysis");
+        return cachedResult;
+      }
+
+      // Try EdenAI first for sentiment analysis
+      let sentiment = "";
       try {
-        const edenResult = await this.edenai.text.analyze_sentiment({
+        const edenResponse = await this.edenai.text.sentimentAnalysis({
+          providers: ["amazon"],
           text: feedbackText,
-          providers: ['amazon'],
+          language: "en",
         });
-
-        const result: AnalysisResult = {
-          sentiment: edenResult.amazon.sentiment,
-          topics: [], // EdenAI doesn't provide topics
-          summary: edenResult.amazon.summary || '',
-          actionableInsights: [], // EdenAI doesn't provide actionable insights
-        };
-
-        await this.setCache(cacheKey, result);
-        return result;
+        
+        sentiment = edenResponse.amazon.sentiment;
       } catch (error) {
-        console.error('EdenAI analysis failed:', error);
-        throw new Error('Failed to analyze feedback with both AI providers');
+        console.error("EdenAI sentiment analysis failed, falling back to OpenAI", error);
       }
-    } catch (error) {
-      console.error('Error in analyzeFeedback:', error);
-      throw error;
-    }
-  }
 
-  async generateResponse(prompt: string): Promise<string> {
-    try {
-      await this.checkRateLimit('generateResponse');
-
-      const cacheKey = this.getCacheKey('generateResponse', prompt);
-      const cachedResult = await this.getFromCache<string>(cacheKey);
-      if (cachedResult) return cachedResult;
-
+      // Use OpenAI for comprehensive analysis
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: "gpt-4",
         messages: [
           {
-            role: 'system',
-            content: 'You are a helpful assistant generating responses to feedback.',
+            role: "system",
+            content: `You are an AI assistant that analyzes feedback. 
+            Extract the following from the feedback:
+            1. Overall sentiment (positive, negative, or neutral)
+            2. Main topics mentioned
+            3. A brief summary
+            4. Actionable items for improvement
+            
+            Format your response as JSON with the following structure:
+            {
+              "sentiment": "positive/negative/neutral",
+              "topics": ["topic1", "topic2"],
+              "summary": "brief summary",
+              "actionItems": ["action1", "action2"]
+            }`,
           },
           {
-            role: 'user',
-            content: prompt,
+            role: "user",
+            content: feedbackText,
           },
         ],
+        temperature: 0.2,
+        max_tokens: 1000,
+      });
+
+      // Parse the response
+      const responseContent = completion.choices[0]?.message?.content || "{}";
+      let parsedResponse;
+      
+      try {
+        parsedResponse = JSON.parse(responseContent);
+        
+        // If we got sentiment from EdenAI, use that instead
+        if (sentiment) {
+          parsedResponse.sentiment = sentiment;
+        }
+        
+        // Validate with zod schema
+        const validatedResponse = feedbackAnalysisSchema.parse(parsedResponse);
+        
+        // Cache the result
+        this.cache.set(cacheKey, validatedResponse);
+        
+        // Store analysis in database for future reference
+        await this.storeAnalysisInDb(feedbackText, validatedResponse);
+        
+        return validatedResponse;
+      } catch (parseError) {
+        console.error("Failed to parse OpenAI response", parseError);
+        throw new Error("Failed to analyze feedback: Invalid response format");
+      }
+    } catch (error) {
+      console.error("Error in analyzeFeedback:", error);
+      // Return a fallback response
+      return {
+        sentiment: "neutral",
+        topics: ["unknown"],
+        summary: "Could not analyze feedback",
+        actionItems: ["Review feedback manually"],
+      };
+    }
+  }
+
+  /**
+   * Handles chat interactions with the AI
+   */
+  public async chat(message: string, history: Array<{ role: string; content: string }> = []): Promise<{ response: string }> {
+    try {
+      // Check if initialized
+      if (!this.isInitialized) {
+        throw new Error("AI service not initialized");
+      }
+
+      // Generate cache key based on message and history
+      const historyString = history.map(h => `${h.role}:${h.content}`).join("|");
+      const cacheKey = `chat_${Buffer.from(message + historyString).toString('base64')}`;
+      
+      // Check cache first
+      const cachedResult = this.cache.get(cacheKey);
+      if (cachedResult) {
+        console.log("Using cached chat response");
+        return cachedResult;
+      }
+
+      // Prepare messages for OpenAI
+      const messages = [
+        {
+          role: "system",
+          content: "You are a helpful assistant that provides concise and accurate responses to questions about feedback and organizational improvement.",
+        },
+        ...history,
+        {
+          role: "user",
+          content: message,
+        },
+      ];
+
+      // Call OpenAI
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: messages as any,
         temperature: 0.7,
         max_tokens: 500,
       });
 
-      const response = completion.choices[0].message.content || '';
-      await this.setCache(cacheKey, response);
-      return response;
+      // Extract and validate response
+      const responseContent = completion.choices[0]?.message?.content || "No response generated";
+      const response = { response: responseContent };
+      
+      // Validate with schema
+      const validatedResponse = chatResponseSchema.parse(response);
+      
+      // Cache the result
+      this.cache.set(cacheKey, validatedResponse);
+      
+      return validatedResponse;
     } catch (error) {
-      console.error('Error in generateResponse:', error);
-      throw error;
+      console.error("Error in chat:", error);
+      return { response: "I'm sorry, I encountered an error processing your request. Please try again later." };
     }
   }
 
-  async clearCache(): Promise<void> {
+  /**
+   * Stores analysis results in the database for future reference
+   */
+  private async storeAnalysisInDb(feedbackText: string, analysis: any): Promise<void> {
     try {
-      // Clear in-memory cache
-      this.cache.clear();
-
-      // Clear Redis cache if available
-      if (this.redis) {
-        await this.redis.flushall();
-      }
+      // Store in database if needed
+      // This is a placeholder for actual database storage logic
+      await prisma.feedbackAnalysis.create({
+        data: {
+          feedbackText,
+          sentiment: analysis.sentiment,
+          topics: analysis.topics,
+          summary: analysis.summary,
+          actionItems: analysis.actionItems,
+          createdAt: new Date(),
+        },
+      });
     } catch (error) {
-      console.error('Error clearing cache:', error);
-      throw error;
+      // Log but don't throw - this is a non-critical operation
+      console.error("Failed to store analysis in database:", error);
     }
+  }
+
+  /**
+   * Clears the cache
+   */
+  public clearCache(): void {
+    this.cache.clear();
   }
 }
 
