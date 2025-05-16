@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient as Prisma } from "@prisma/client";
 
 interface AnonymitySettingsResponse { id: string; }
 
-const prisma = new PrismaClient();
+const prisma = new Prisma();
 
 function formatAnonymitySettingsResponse(settings: Record<string, any>): AnonymitySettingsResponse {
   return { id: String(settings.id) };
