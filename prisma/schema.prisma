@@ -4,6 +4,7 @@
 generator client {
   provider = "prisma-client-js"
   output   = "./node_modules/.prisma/client"
+  previewFeatures = ["referentialIntegrity"] // Add referential integrity for better performance
 }
 
 datasource db {
@@ -31,6 +32,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -39,6 +41,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -47,6 +51,8 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+  @@index([identifier])
+  @@index([token])
 }
 
 // --- Application Specific Models ---
@@ -72,9 +78,12 @@ model User {
   invitations   Invitation[] // Invitations sent by this user
   roles         Role[]       @relation("userRoles") // Many-to-many relationship with roles
 
-  @@index([email])  // Index on email field
-  @@index([roleId]) // Index on roleId field
-  @@index([teamId]) // Index on teamId field
+  @@index([email])
+  @@index([roleId])
+  @@index([teamId])
+  @@index([lastActive]) // Add index for lastActive for filtering active users
+  @@index([createdAt]) // Add index for sorting by creation date
+  @@index([updatedAt]) // Add index for sorting by update date
 }
 
 // Role model
@@ -84,6 +93,8 @@ model Role {
   users       User[]       @relation("primaryRole") // For backward compatibility
   invitations Invitation[]
   userRoles   User[]       @relation("userRoles") // Many-to-many relationship with users
+  
+  @@map("roles") // Lowercase table name for consistency
 }
 
 // Invitation model
@@ -102,9 +113,13 @@ model Invitation {
   status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
   orgId     String   // Organization ID
 
-  @@index([email])     // Index on email field
-  @@index([roleId])    // Index on roleId field
-  @@index([inviterId]) // Index on inviterId field
+  @@index([email])
+  @@index([roleId])
+  @@index([inviterId])
+  @@index([token]) // Add index for token lookups
+  @@index([expires]) // Add index for expiration checks
+  @@index([status]) // Add index for status filtering
+  @@map("invitations") // Lowercase table name for consistency
 }
 
 // Enhanced Team model
@@ -122,7 +137,10 @@ model Team {
   updatedAt       DateTime @updatedAt
   members         User[]   // Users belonging to this team
 
-  @@index([parentGroupId]) // Index on parentGroupId field
+  @@index([parentGroupId])
+  @@index([isAnonymous]) // Add index for filtering anonymous teams
+  @@index([requiresMerging]) // Add index for finding teams that need merging
+  @@map("teams") // Lowercase table name for consistency
 }
 
 // Feedback model
@@ -143,7 +161,10 @@ model Feedback {
   userAgent       String?        // Store User Agent for diagnostics
   processingLog   Json?          // Store logs related to AI processing or errors
 
-  @@index([status]) // Index on status field
+  @@index([status])
+  @@index([sentiment]) // Add index for sentiment filtering
+  @@index([createdAt]) // Add index for date-based queries
+  @@map("feedback") // Lowercase table name for consistency
 }
 
 enum FeedbackStatus {
@@ -159,6 +180,8 @@ model Setting {
   value     Json     // Store value as JSON to allow flexibility (string, number, boolean, object)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  @@map("settings") // Lowercase table name for consistency
 }
 
 // AnonymitySettings model
@@ -172,8 +195,6 @@ model AnonymitySettings {
   activityRequirements      Json?    // What constitutes "activity" (e.g., { login: true, feedbackSubmission: true })
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
-  enableAnonymousComments   Boolean  @default(true)
-  enableAnonymousVotes      Boolean  @default(true)
-  enableAnonymousAnalytics  Boolean  @default(false)
-  anonymityLevel            String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  
+  @@map("anonymity_settings") // Use snake_case for table name consistency
 }
