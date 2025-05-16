@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Use the correct runtime
 export const runtime = 'experimental-edge';
 
 const PROTECTED_ROUTES = [
@@ -24,12 +23,10 @@ export async function middleware(request: NextRequest) {
   try {
     const { pathname, search } = request.nextUrl;
 
-    // Skip middleware for public files
     if (PUBLIC_FILES.includes(pathname)) {
       return NextResponse.next();
     }
 
-    // Check if the current route is protected
     const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
       pathname.startsWith(route)
     );
