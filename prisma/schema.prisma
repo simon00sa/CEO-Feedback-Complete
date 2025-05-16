@@ -10,7 +10,7 @@ datasource db {
   provider     = "postgresql"
   url          = env("DATABASE_URL")
   directUrl    = env("DIRECT_URL") // Optional but helpful for direct connections
-  relationMode = "prisma" // This can help with certain connection issues
+  relationMode = "prisma"
 }
 
 // Required Models for NextAuth.js
