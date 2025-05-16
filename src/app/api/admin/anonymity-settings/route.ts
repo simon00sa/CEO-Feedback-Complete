@@ -11,7 +11,7 @@ const AnonymitySettingsSchema = z.object({
   activityThresholdDays: z.number().default(30),
   combinationLogic: z.string().default("DEPARTMENT"),
   enableGrouping: z.boolean().default(true),
-  activityRequirements: z.any().optional(),
+  activityRequirements: z.record(z.any()).optional(), // Better typed than z.any()
   enableAnonymousComments: z.boolean().default(true),
   enableAnonymousVotes: z.boolean().default(true),
   enableAnonymousAnalytics: z.boolean().default(false),
@@ -28,7 +28,7 @@ type AnonymitySettingsResponse = {
   activityThresholdDays: number;
   combinationLogic: string;
   enableGrouping: boolean;
-  activityRequirements: unknown | null;
+  activityRequirements: Record<string, any> | null;
   enableAnonymousComments: boolean;
   enableAnonymousVotes: boolean;
   enableAnonymousAnalytics: boolean;
@@ -53,7 +53,7 @@ async function isAdmin(): Promise<boolean> {
 
 // Helper function to format the response
 function formatAnonymitySettingsResponse(
-  settings: any
+  settings: Record<string, any>
 ): AnonymitySettingsResponse {
   // Ensure the id is a string to prevent type errors
   if (!settings || typeof settings.id !== "string") {
@@ -77,6 +77,10 @@ function formatAnonymitySettingsResponse(
   };
 }
 
+// Add runtime specification for Vercel deployment
+export const runtime = 'nodejs';
+export const maxDuration = 60; // Max execution time in seconds
+
 // GET /api/admin/anonymity-settings - Retrieve anonymity settings
 export async function GET() {
   try {
@@ -84,40 +88,37 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    let settings: any = await prisma.anonymitySettings.findFirst();
+    // Use Prisma's typed queries instead of raw SQL
+    let settings: AnonymitySettingsResponse;
+    const existingSettings = await prisma.anonymitySettings.findFirst();
 
-    if (!settings) {
-      // Skip Prisma and go straight to raw SQL for maximum compatibility
-      const rawSettings = await prisma.$queryRaw`
-        INSERT INTO "AnonymitySettings" (
-          "minGroupSize",
-          "minActiveUsers",
-          "activityThresholdDays",
-          "combinationLogic",
-          "enableGrouping",
-          "activityRequirements",
-          "createdAt",
-          "updatedAt"
-        ) VALUES (
-          8,
-          5,
-          30,
-          'DEPARTMENT',
-          true,
-          NULL,
-          NOW(),
-          NOW()
-        )
-        RETURNING *;
-      `;
+    if (!existingSettings) {
+      // Use upsert for better type safety and to avoid raw SQL
+      const createdSettings = await prisma.anonymitySettings.upsert({
+        where: { id: 'default' },
+        create: {
+          minGroupSize: 8,
+          minActiveUsers: 5,
+          activityThresholdDays: 30,
+          combinationLogic: 'DEPARTMENT',
+          enableGrouping: true,
+          activityRequirements: null,
+        },
+        update: {},
+      });
       
-      // If we get an array back from raw query, get the first element
-      const dbSettings: any = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
-      
-      // Add the frontend fields manually - use 'any' to bypass type checking
+      // Add the frontend fields manually
       settings = {
-        ...dbSettings,
-        // These fields aren't in the database, so we add them manually
+        ...createdSettings,
+        enableAnonymousComments: true,
+        enableAnonymousVotes: true,
+        enableAnonymousAnalytics: false,
+        anonymityLevel: "MEDIUM"
+      };
+    } else {
+      // Add the frontend fields manually
+      settings = {
+        ...existingSettings,
         enableAnonymousComments: true,
         enableAnonymousVotes: true,
         enableAnonymousAnalytics: false,
@@ -125,7 +126,16 @@ export async function GET() {
       };
     }
 
-    return NextResponse.json(formatAnonymitySettingsResponse(settings));
+    // Add response headers
+    const headers = {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json',
+    };
+
+    return NextResponse.json(settings, {
+      status: 200,
+      headers
+    });
   } catch (error) {
     console.error("Error fetching anonymity settings:", error);
     return NextResponse.json(
@@ -145,69 +155,50 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const validatedData = AnonymitySettingsSchema.parse(body);
 
+    // Use Prisma's typed queries instead of raw SQL
     const existingSettings = await prisma.anonymitySettings.findFirst();
-    let settings: any;
+    let settings: AnonymitySettingsResponse;
 
     if (existingSettings) {
-      // Update using raw SQL to bypass Prisma type checking
-      const rawSettings = await prisma.$queryRaw`
-        UPDATE "AnonymitySettings"
-        SET
-          "minGroupSize" = ${validatedData.minGroupSize},
-          "minActiveUsers" = ${validatedData.minActiveUsers},
-          "activityThresholdDays" = ${validatedData.activityThresholdDays},
-          "combinationLogic" = ${validatedData.combinationLogic},
-          "enableGrouping" = ${validatedData.enableGrouping},
-          "activityRequirements" = ${validatedData.activityRequirements ? JSON.stringify(validatedData.activityRequirements) : null},
-          "updatedAt" = NOW()
-        WHERE "id" = ${existingSettings.id}
-        RETURNING *;
-      `;
+      const updatedSettings = await prisma.anonymitySettings.update({
+        where: { id: existingSettings.id },
+        data: {
+          minGroupSize: validatedData.minGroupSize,
+          minActiveUsers: validatedData.minActiveUsers,
+          activityThresholdDays: validatedData.activityThresholdDays,
+          combinationLogic: validatedData.combinationLogic,
+          enableGrouping: validatedData.enableGrouping,
+          activityRequirements: validatedData.activityRequirements 
+            ? JSON.stringify(validatedData.activityRequirements) 
+            : null,
+        },
+      });
       
-      // If we get an array back from raw query, get the first element
-      const dbSettings: any = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
-      
-      // Add the frontend fields back - use 'any' to bypass type checking
+      // Add the frontend fields
       settings = {
-        ...dbSettings,
-        // Add these fields that aren't in the database
+        ...updatedSettings,
         enableAnonymousComments: validatedData.enableAnonymousComments,
         enableAnonymousVotes: validatedData.enableAnonymousVotes,
         enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
         anonymityLevel: validatedData.anonymityLevel
       };
     } else {
-      // Use raw SQL without specifying fields that might not exist in schema
-      const rawSettings = await prisma.$queryRaw`
-        INSERT INTO "AnonymitySettings" (
-          "minGroupSize",
-          "minActiveUsers",
-          "activityThresholdDays",
-          "combinationLogic",
-          "enableGrouping",
-          "activityRequirements",
-          "createdAt",
-          "updatedAt"
-        ) VALUES (
-          ${validatedData.minGroupSize},
-          ${validatedData.minActiveUsers},
-          ${validatedData.activityThresholdDays},
-          ${validatedData.combinationLogic},
-          ${validatedData.enableGrouping},
-          ${validatedData.activityRequirements ? JSON.stringify(validatedData.activityRequirements) : null},
-          NOW(),
-          NOW()
-        )
-        RETURNING *;
-      `;
+      const createdSettings = await prisma.anonymitySettings.create({
+        data: {
+          minGroupSize: validatedData.minGroupSize,
+          minActiveUsers: validatedData.minActiveUsers,
+          activityThresholdDays: validatedData.activityThresholdDays,
+          combinationLogic: validatedData.combinationLogic,
+          enableGrouping: validatedData.enableGrouping,
+          activityRequirements: validatedData.activityRequirements 
+            ? JSON.stringify(validatedData.activityRequirements) 
+            : null,
+        },
+      });
       
-      // If we get an array back from raw query, get the first element
-      const dbSettings: any = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
-      
-      // Add the frontend fields - use 'any' to bypass type checking completely
+      // Add the frontend fields
       settings = {
-        ...dbSettings,
-        // Add these fields that aren't in the database
+        ...createdSettings,
         enableAnonymousComments: validatedData.enableAnonymousComments,
         enableAnonymousVotes: validatedData.enableAnonymousVotes,
         enableAnonymousAnalytics: validatedData.enableAnonymousAnalytics,
@@ -215,7 +206,16 @@ export async function PUT(req: NextRequest) {
       };
     }
 
-    return NextResponse.json(formatAnonymitySettingsResponse(settings));
+    // Add response headers
+    const headers = {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json',
+    };
+
+    return NextResponse.json(settings, {
+      status: 200,
+      headers
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("Validation error:", error.errors);
