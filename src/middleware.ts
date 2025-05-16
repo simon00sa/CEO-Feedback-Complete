@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Export edge runtime configuration for better performance on Vercel
-export const runtime = 'edge';
+export const runtime = 'experimental-edge';
 
 // Define protected routes as a constant outside the function
 // to avoid recreating it on every request
