@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { randomUUID } from 'crypto';
 import { getCurrentUser } from '@/lib/auth';
 import { isUserAdmin } from '@/lib/utils';
+
+// Add runtime specification for Vercel deployment
+export const runtime = 'nodejs';
+export const maxDuration = 60; // Max execution time in seconds
 
 // Define validation schema
 const invitationSchema = z.object({
@@ -56,23 +59,36 @@ type FormattedInvitation = {
   } | null;
 };
 
-// Function to generate a unique token
-function generateToken() {
-  return randomUUID();
-}
+// Function to generate a unique token with fallback for Edge runtime
+const generateToken = () => {
+  try {
+    // Import at runtime to handle Edge compatibility
+    const { randomUUID } = require('crypto');
+    return randomUUID();
+  } catch (e) {
+    // Fallback for Edge runtime
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+};
+
+// Add response headers
+const headers = {
+  'Cache-Control': 'no-store',
+  'Content-Type': 'application/json',
+};
 
 export async function POST(req: NextRequest) {
   try {
     // Only allow admins to create invitations
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
     }
 
     // Check if user is admin
     const isAdmin = await isUserAdmin(currentUser.id);
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
     }
 
     // Parse and validate request body
@@ -82,7 +98,7 @@ export async function POST(req: NextRequest) {
     if (!result.success) {
       return NextResponse.json(
         { error: 'Invalid request data', details: result.error.format() },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
 
@@ -96,98 +112,80 @@ export async function POST(req: NextRequest) {
     if (!role) {
       return NextResponse.json(
         { error: 'Role not found' },
-        { status: 404 }
+        { status: 404, headers }
       );
     }
 
-    // Create invitation - using raw query to bypass type issues
-    const [invitation] = await prisma.$queryRaw<Array<{
-      id: string;
-      email: string;
-      roleId: string;
-      inviterId: string;
-      status: string;
-      token: string;
-      expires: Date;
-      orgId: string;
-      used: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    }>>`
-      INSERT INTO "Invitation" (id, email, "roleId", "inviterId", status, token, expires, "orgId", used, "createdAt", "updatedAt")
-      VALUES (${randomUUID()}, ${validatedData.email}, ${role.id}, ${currentUser.id}, 'PENDING', ${generateToken()}, ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}, ${validatedData.orgId}, false, ${new Date()}, ${new Date()})
-      RETURNING *`;
+    // Use Prisma's typed methods instead of raw SQL
+    const invitation = await prisma.invitation.create({
+      data: {
+        email: validatedData.email,
+        roleId: role.id,
+        inviterId: currentUser.id,
+        status: 'PENDING',
+        token: generateToken(),
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        orgId: validatedData.orgId,
+        used: false,
+      },
+      include: {
+        role: true,
+        inviter: true,
+      },
+    });
     
-    return NextResponse.json(invitation, { status: 201 });
+    return NextResponse.json(invitation, { status: 201, headers });
   } catch (error) {
     console.error('Error creating invitation:', error);
     return NextResponse.json(
       { error: 'Failed to create invitation', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
 }
 
-// Using raw SQL for more control
 export async function GET() {
   try {
     // Only allow admins to list invitations
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
     }
 
     // Check if user is admin
     const isAdmin = await isUserAdmin(currentUser.id);
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
     }
 
-    // Use raw SQL to avoid Prisma type issues - now properly typed!
-    const invitations: InvitationQueryResult[] = await prisma.$queryRaw`
-      SELECT 
-        i.*,
-        r.id as role_id,
-        r.name as role_name,
-        u.id as inviter_id,
-        u.name as inviter_name,
-        u.email as inviter_email
-      FROM "Invitation" i
-      LEFT JOIN "Role" r ON i."roleId" = r.id
-      LEFT JOIN "User" u ON i."inviterId" = u.id
-      ORDER BY i."createdAt" DESC
-    `;
+    // Use Prisma's typed methods instead of raw SQL
+    const invitations = await prisma.invitation.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
 
-    // Transform the result to match our expected structure
-    const formattedInvitations: FormattedInvitation[] = invitations.map((inv) => ({
-      id: inv.id,
-      email: inv.email,
-      roleId: inv.roleId,
-      inviterId: inv.inviterId,
-      status: inv.status,
-      token: inv.token,
-      expires: inv.expires,
-      orgId: inv.orgId,
-      used: inv.used,
-      createdAt: inv.createdAt,
-      updatedAt: inv.updatedAt,
-      role: inv.role_id ? {
-        id: inv.role_id,
-        name: inv.role_name!,
-      } : null,
-      inviter: inv.inviter_id ? {
-        id: inv.inviter_id,
-        name: inv.inviter_name,
-        email: inv.inviter_email!,
-      } : null,
-    }));
-
-    return NextResponse.json(formattedInvitations);
+    return NextResponse.json(invitations, { headers });
   } catch (error) {
     console.error('Error fetching invitations:', error);
     return NextResponse.json(
       { error: 'Failed to fetch invitations', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
 }
@@ -197,13 +195,13 @@ export async function DELETE(req: NextRequest) {
     // Only allow admins to delete invitations
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
     }
 
     // Check if user is admin
     const isAdmin = await isUserAdmin(currentUser.id);
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
     }
 
     // Get the invitation ID from the query parameters
@@ -213,28 +211,29 @@ export async function DELETE(req: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: 'Invitation ID is required' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
 
-    // Use raw SQL to ensure it works - properly typed
-    const result: Array<{ id: string }> = await prisma.$queryRaw`
-      DELETE FROM "Invitation" WHERE id = ${id}
-      RETURNING id`;
-    
-    if (!result || result.length === 0) {
+    // Use Prisma's typed methods instead of raw SQL
+    try {
+      await prisma.invitation.delete({
+        where: { id },
+      });
+    } catch (error) {
+      // Handle not found error
       return NextResponse.json(
         { error: 'Invitation not found' },
-        { status: 404 }
+        { status: 404, headers }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers });
   } catch (error) {
     console.error('Error deleting invitation:', error);
     return NextResponse.json(
       { error: 'Failed to delete invitation', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
 }
