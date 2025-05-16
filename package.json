@@ -9,8 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "vercel:build": "npx prisma generate --schema=./prisma/schema.prisma && pnpm build"
+    "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.9.0",
