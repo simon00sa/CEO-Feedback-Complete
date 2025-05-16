@@ -16,15 +16,47 @@ import { AnalyticsCard } from "@/components/dashboard/analytics-card"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+// Define types for analytics data
+interface StatusCounts {
+  new: number;
+  'in-progress': number;
+  resolved: number;
+  escalated: number;
+}
+
+interface AnalyticsData {
+  data: {
+    totalFeedback: number;
+    categoryCounts: Record<string, number>;
+    departmentCounts: Record<string, number>;
+    priorityCounts: Record<number, number>;
+    statusCounts: StatusCounts;
+    resolutionRate: number;
+    averageResponseTime: number;
+  }
+}
+
+interface SentimentByDepartment {
+  department: string;
+  sentiment: number;
+}
+
+interface AIAnalysis {
+  topCategories: Array<{ name: string; count: number }>;
+  sentimentByDepartment: SentimentByDepartment[];
+  urgentIssues: string[];
+  recommendedActions: string[];
+}
+
 export function DashboardAnalytics() {
-  const [analyticsData, setAnalyticsData] = useState(null)
-  const [aiAnalysis, setAiAnalysis] = useState(null)
-  const [period, setPeriod] = useState('month')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null)
+  const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month')
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<Error | null>(null)
 
   // Mock data for demonstration
-  const mockAnalyticsData = {
+  const mockAnalyticsData: AnalyticsData = {
     data: {
       totalFeedback: 127,
       categoryCounts: {
@@ -58,7 +90,7 @@ export function DashboardAnalytics() {
     }
   }
 
-  const mockAiAnalysis = {
+  const mockAiAnalysis: AIAnalysis = {
     topCategories: [
       { name: "Workload", count: 35 },
       { name: "Communication", count: 25 },
@@ -114,6 +146,9 @@ export function DashboardAnalytics() {
         // Even if there's an error in our error handling, use mock data
         setAnalyticsData(mockAnalyticsData)
         setAiAnalysis(mockAiAnalysis)
+        if (error instanceof Error) {
+          setError(error)
+        }
       } finally {
         setLoading(false)
       }
@@ -122,7 +157,7 @@ export function DashboardAnalytics() {
     fetchAnalytics()
   }, [period])
 
-  const handlePeriodChange = (newPeriod) => {
+  const handlePeriodChange = (newPeriod: 'month' | 'quarter' | 'year') => {
     setPeriod(newPeriod)
   }
 
