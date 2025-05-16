@@ -1,55 +1,63 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { NextResponse } from "next/server";
-import { getServerSession, Session } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+"use client";
 
-// Existing UI utility
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { Cache } from "lru-cache";
+import { CounterSchema } from "@/types";
 
-// New API utilities
+// Initialize cache
+const cache = new Cache<string, CounterSchema>({
+  max: 100,
+  ttl: 1000 * 60 * 60, // 1 hour
+});
 
-// Centralized Prisma error handler
-export function handlePrismaError(error: unknown): NextResponse {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === "P2002") {
-      return NextResponse.json(
-        { error: "Unique constraint violation" },
-        { status: 409 }
-      );
-    }
-  }
-  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-}
-
-// Check if the current session belongs to an admin
-export async function ensureAdmin(session: Session | null): Promise<boolean> {
-  if (!session?.user) {
-    return false;
-  }
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { role: true },
-  });
-  return user?.role?.name === "ADMIN";
-}
-
-// Utility to check if a user is an admin by user ID
-export async function isUserAdmin(userId: string): Promise<boolean> {
+// Add counter value
+export const addCounter = async (name: string, display: string) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true },
+    const cacheKey = `counter_${name}`;
+    const counterData = { name, display, count: (cache.get(cacheKey)?.count || 0) + 1 };
+    cache.set(cacheKey, counterData);
+
+    // Call API to update database
+    await fetch("/api/data/counter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, display, count: counterData.count }),
     });
 
-    // Check if user has the "Admin" role
-    return user?.role?.name === "Admin";
+    return counterData;
   } catch (error) {
-    console.error("Error checking if user is admin:", error);
-    return false;
+    console.error("Error adding counter:", error);
+    throw error;
   }
-}
+};
+
+// Get counter value
+export const getCounter = async (name: string): Promise<CounterSchema | undefined> => {
+  try {
+    const cacheKey = `counter_${name}`;
+    const cachedCounter = cache.get(cacheKey);
+
+    if (cachedCounter) {
+      return cachedCounter;
+    }
+
+    // Fetch from API if not in cache
+    const res = await fetch(`/api/data/counter?name=${name}`);
+    if (!res.ok) throw new Error("Failed to fetch counter");
+    const counterData = await res.json();
+    cache.set(cacheKey, counterData);
+    return counterData;
+  } catch (error) {
+    console.error("Error getting counter:", error);
+    throw error;
+  }
+};
+
+// Get all cached counters
+export const getCache = (): CounterSchema[] => {
+  return Array.from(cache.values());
+};
+
+// Clear cache
+export const clearCache = (): void => {
+  cache.clear();
+};
