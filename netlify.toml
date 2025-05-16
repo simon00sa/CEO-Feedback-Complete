@@ -1,0 +1,17 @@
+[build]
+  command = "pnpm install --no-frozen-lockfile && pnpm build"
+  publish = "dist"  # Adjust to your Next.js output directory (e.g., .next if not customized)
+
+[dev]
+  command = "pnpm dev"
+  port = 3000
+
+[functions]
+  directory = "netlify/functions"  # Optional, if you have serverless functions
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[context.production.environment]
+  NODE_VERSION = "22.15.1"
+  PNPM_VERSION = "10.11.0"
