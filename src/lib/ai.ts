@@ -1,5 +1,4 @@
 import { OpenAI } from "openai";
-import { EdenAI as EdenAIClient } from "edenai";
 import { PrismaClient } from "@prisma/client";
 import { LRUCache } from "lru-cache";
 import { z } from "zod";
@@ -27,24 +26,18 @@ const chatResponseSchema = z.object({
 
 class AIImplementation {
   private openai: OpenAI;
-  private edenai: typeof EdenAIClient;
   private cache: LRUCache<string, any>;
   private isInitialized: boolean = false;
 
   constructor() {
     // Initialize cache
     this.cache = new LRUCache(cacheOptions);
-    
+
     // Initialize OpenAI client
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY || "",
     });
-    
-    // Initialize EdenAI client
-    this.edenai = new EdenAIClient({
-      apiKey: process.env.EDENAI_API_KEY || "",
-    });
-    
+
     this.isInitialized = true;
   }
 
@@ -65,26 +58,12 @@ class AIImplementation {
 
       // Generate cache key
       const cacheKey = `feedback_analysis_${Buffer.from(feedbackText).toString('base64')}`;
-      
+
       // Check cache first
       const cachedResult = this.cache.get(cacheKey);
       if (cachedResult) {
         console.log("Using cached feedback analysis");
         return cachedResult;
-      }
-
-      // Try EdenAI first for sentiment analysis
-      let sentiment = "";
-      try {
-        const edenResponse = await this.edenai.text.sentimentAnalysis({
-          providers: ["amazon"],
-          text: feedbackText,
-          language: "en",
-        });
-        
-        sentiment = edenResponse.amazon.sentiment;
-      } catch (error) {
-        console.error("EdenAI sentiment analysis failed, falling back to OpenAI", error);
       }
 
       // Use OpenAI for comprehensive analysis
@@ -99,7 +78,7 @@ class AIImplementation {
             2. Main topics mentioned
             3. A brief summary
             4. Actionable items for improvement
-            
+
             Format your response as JSON with the following structure:
             {
               "sentiment": "positive/negative/neutral",
@@ -120,24 +99,19 @@ class AIImplementation {
       // Parse the response
       const responseContent = completion.choices[0]?.message?.content || "{}";
       let parsedResponse;
-      
+
       try {
         parsedResponse = JSON.parse(responseContent);
-        
-        // If we got sentiment from EdenAI, use that instead
-        if (sentiment) {
-          parsedResponse.sentiment = sentiment;
-        }
-        
+
         // Validate with zod schema
         const validatedResponse = feedbackAnalysisSchema.parse(parsedResponse);
-        
+
         // Cache the result
         this.cache.set(cacheKey, validatedResponse);
-        
+
         // Store analysis in database for future reference
         await this.storeAnalysisInDb(feedbackText, validatedResponse);
-        
+
         return validatedResponse;
       } catch (parseError) {
         console.error("Failed to parse OpenAI response", parseError);
@@ -168,7 +142,7 @@ class AIImplementation {
       // Generate cache key based on message and history
       const historyString = history.map(h => `${h.role}:${h.content}`).join("|");
       const cacheKey = `chat_${Buffer.from(message + historyString).toString('base64')}`;
-      
+
       // Check cache first
       const cachedResult = this.cache.get(cacheKey);
       if (cachedResult) {
@@ -200,13 +174,13 @@ class AIImplementation {
       // Extract and validate response
       const responseContent = completion.choices[0]?.message?.content || "No response generated";
       const response = { response: responseContent };
-      
+
       // Validate with schema
       const validatedResponse = chatResponseSchema.parse(response);
-      
+
       // Cache the result
       this.cache.set(cacheKey, validatedResponse);
-      
+
       return validatedResponse;
     } catch (error) {
       console.error("Error in chat:", error);
@@ -220,7 +194,6 @@ class AIImplementation {
   private async storeAnalysisInDb(feedbackText: string, analysis: any): Promise<void> {
     try {
       // Store in database if needed
-      // This is a placeholder for actual database storage logic
       await prisma.feedbackAnalysis.create({
         data: {
           feedbackText,
@@ -250,11 +223,6 @@ const aiInstance = new AIImplementation();
 
 // Default export (for chat/route.ts)
 export default aiInstance;
-
-// Named export for EdenAI (for analytics/route.ts)
-export const EdenAI = {
-  analyzeFeedback: aiInstance.analyzeFeedback.bind(aiInstance)
-};
 
 // Re-export the class (for backward compatibility)
 export const AI = AIImplementation;
