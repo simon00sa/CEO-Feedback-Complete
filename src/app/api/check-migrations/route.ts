@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     ].map(p => p.catch(e => ({ error: e.message })))));
     
     // Check key model structures
-    const modelChecks = {};
+    const modelChecks: Record<string, any> = {};
     const modelsToCheck = ['User', 'Invitation', 'Team', 'Feedback'];
     
     for (const modelName of modelsToCheck) {
@@ -94,7 +94,6 @@ export async function GET(request: NextRequest) {
           isRequired: field.isRequired,
         }));
         
-        // @ts-ignore - Dynamic property assignment
         modelChecks[modelName] = {
           dbColumns: columns,
           prismaFields: modelFields,
@@ -105,7 +104,6 @@ export async function GET(request: NextRequest) {
             : false
         };
       } catch (error) {
-        // @ts-ignore - Dynamic property assignment
         modelChecks[modelName] = { error: error instanceof Error ? error.message : String(error) };
       }
     }
@@ -114,7 +112,7 @@ export async function GET(request: NextRequest) {
     const serverInfo = {
       nodeEnv: process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
-      prismaVersion: prisma._engineConfig?.version || 'unknown',
+      prismaVersion: prisma.$clientVersion || 'unknown', // Fixed: Use $clientVersion instead of _engineConfig
       databaseUrl: process.env.DATABASE_URL 
         ? (process.env.DATABASE_URL.includes('://') 
             ? process.env.DATABASE_URL.split('@')[1]?.split('/')[0] || 'masked' 
