@@ -30,6 +30,42 @@ function captureError(error: unknown, context: string) {
   // Add your error monitoring service here if needed
 }
 
+// Function to safely get Prisma version
+function getPrismaVersion(): string {
+  try {
+    // Try different ways to access version based on Prisma version
+    if (typeof (prisma as any).version?.client === 'string') {
+      return (prisma as any).version.client;
+    }
+    
+    // Try accessing internal property as a fallback (may not work in all versions)
+    if (typeof (prisma as any)._engineConfig?.version === 'string') {
+      return (prisma as any)._engineConfig.version;
+    }
+    
+    // If we have access to the client version via another method
+    if (typeof (prisma as any).$clientVersion === 'string') {
+      return (prisma as any).$clientVersion;
+    }
+    
+    // Last resort - try to access the version from package.json
+    // This won't work in production but might help in development
+    try {
+      // This is a hack - don't rely on this in production
+      const pkgPath = require.resolve('@prisma/client/package.json');
+      const pkg = require(pkgPath);
+      return pkg.version || 'unknown';
+    } catch (e) {
+      // Ignore error from package.json attempt
+    }
+    
+    return 'unknown';
+  } catch (e) {
+    console.error('Error getting Prisma version:', e);
+    return 'unknown';
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Only allow on non-production environments unless explicitly requested
@@ -112,7 +148,7 @@ export async function GET(request: NextRequest) {
     const serverInfo = {
       nodeEnv: process.env.NODE_ENV,
       timestamp: new Date().toISOString(),
-      prismaVersion: prisma.$clientVersion || 'unknown', // Fixed: Use $clientVersion instead of _engineConfig
+      prismaVersion: getPrismaVersion(), // Using helper function to safely get version
       databaseUrl: process.env.DATABASE_URL 
         ? (process.env.DATABASE_URL.includes('://') 
             ? process.env.DATABASE_URL.split('@')[1]?.split('/')[0] || 'masked' 
