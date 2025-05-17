@@ -61,11 +61,10 @@ export default {
           '5': 'hsl(var(--chart-5))'
         }
       },
-      // Add borderColor configuration to fix the border-border issue
       borderColor: {
         DEFAULT: 'hsl(var(--border))',
-        // Explicitly add 'border' color to borderColor to enable border-border
-        'border': 'hsl(var(--border))',
+        // Add explicit border color to define border-border class
+        'border': 'hsl(var(--border))'
       },
       borderRadius: {
         lg: 'var(--radius)',
