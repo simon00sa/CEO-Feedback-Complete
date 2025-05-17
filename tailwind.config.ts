@@ -61,13 +61,12 @@ const config = {
           '5': 'hsl(var(--chart-5))'
         }
       },
+      backgroundColor: {
+        background: 'hsl(var(--background))',
+      },
       borderColor: {
         DEFAULT: 'hsl(var(--border))',
-        border: 'hsl(var(--border))', 
-      },
-      backgroundColor: {
-        DEFAULT: 'hsl(var(--background))',
-        background: 'hsl(var(--background))',
+        border: 'hsl(var(--border))',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -92,17 +91,16 @@ const config = {
   },
   plugins: [
     require("tailwindcss-animate"),
-    // Update custom plugin to include the exact utility classes
+    // Add direct utility classes without fancy plugin options
     function({ addUtilities }) {
-      const newUtilities = {
-        '.border-border': {
-          borderColor: 'hsl(var(--border))'
-        },
+      addUtilities({
         '.bg-background': {
           backgroundColor: 'hsl(var(--background))'
+        },
+        '.border-border': {
+          borderColor: 'hsl(var(--border))'
         }
-      }
-      addUtilities(newUtilities, { respectPrefix: true, respectImportant: true })
+      })
     }
   ],
 } satisfies Config;
