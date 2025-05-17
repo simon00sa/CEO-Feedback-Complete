@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma"; // Use the Prisma Client from the shared library
+import prisma from "@/lib/prisma"; // Prisma Client instance
 
 // Handler for GET requests
 export async function GET(request: Request) {
