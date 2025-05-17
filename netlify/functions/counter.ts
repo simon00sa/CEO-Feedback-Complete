@@ -52,23 +52,21 @@ export const handler: Handler = async (event, context) => {
       recentAccessList.pop();
     }
     
-    // Generate response headers
-    const responseHeaders = {
-      'Set-Cookie': [
-        `${PAGE_VIEWS_COOKIE}=${currentCount}; Path=/; HttpOnly;`,
-        `${RECENT_ACCESS_COOKIE}=${JSON.stringify(recentAccessList)}; Path=/; HttpOnly;`,
-      ],
-    };
-
-    // Explicitly use the StatsResponse interface to type our response
+    // Create response object that matches the StatsResponse interface
     const response: StatsResponse = {
       count: currentCount,
       recentAccess: recentAccessList,
     };
-    
+
+    // Use multiValueHeaders for Set-Cookie instead of headers
     return {
       statusCode: 200,
-      headers: responseHeaders,
+      multiValueHeaders: {
+        'Set-Cookie': [
+          `${PAGE_VIEWS_COOKIE}=${currentCount}; Path=/; HttpOnly;`,
+          `${RECENT_ACCESS_COOKIE}=${JSON.stringify(recentAccessList)}; Path=/; HttpOnly;`,
+        ],
+      },
       body: JSON.stringify(response),
     };
   } catch (error) {
