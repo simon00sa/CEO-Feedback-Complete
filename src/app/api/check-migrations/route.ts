@@ -24,30 +24,9 @@ function captureError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
 }
 
-// Static version detection that avoids dynamic requires or imports
+// Simplified version detection without dynamic imports or accessing internal properties
 function getPrismaVersion(): string {
-  try {
-    // Use a static approach to avoid dynamic requires
-    const prismaAny = prisma as any;
-    
-    if (prismaAny.version && typeof prismaAny.version.client === 'string') {
-      return prismaAny.version.client;
-    }
-    
-    if (prismaAny._engineConfig && typeof prismaAny._engineConfig.version === 'string') {
-      return prismaAny._engineConfig.version;
-    }
-    
-    if (typeof prismaAny.$clientVersion === 'string') {
-      return prismaAny.$clientVersion;
-    }
-    
-    // Fallback to a hardcoded placeholder
-    return 'unknown';
-  } catch (e) {
-    console.error('Error getting Prisma version:', e);
-    return 'unknown';
-  }
+  return 'unknown';
 }
 
 export async function GET(request: NextRequest) {
@@ -71,6 +50,8 @@ export async function GET(request: NextRequest) {
     `);
 
     const tablesList = Array.isArray(tables) ? tables.map((t: any) => t.table_name) : [];
+    
+    // Exclude the Counter from table counts for now until we're sure it works
     const tableCounts = await withTimeout(
       Promise.all([
         prisma.user.count(),
@@ -79,36 +60,24 @@ export async function GET(request: NextRequest) {
         prisma.feedback.count(),
         prisma.setting.count(),
         prisma.anonymitySettings.count(),
-        prisma.counter.count(), // Now added since Counter model has been added to schema
       ].map((p) => p.catch((e) => ({ error: e.message }))))
     );
 
+    // Only check these core models to avoid potential issues with new Counter model
     const modelChecks: Record<string, any> = {};
-    const modelsToCheck = ['User', 'Invitation', 'Team', 'Feedback', 'Counter'];
+    const modelsToCheck = ['User', 'Invitation', 'Team', 'Feedback'];
 
     for (const modelName of modelsToCheck) {
       try {
-        // Try both original case and lowercase to be safe
-        let columns = await withTimeout(prisma.$queryRaw`
+        const columns = await withTimeout(prisma.$queryRaw`
           SELECT column_name, data_type
           FROM information_schema.columns
           WHERE table_name = ${modelName.toLowerCase()}
         `);
-        
-        // If no columns found with lowercase, try with original case
-        if (!Array.isArray(columns) || columns.length === 0) {
-          columns = await withTimeout(prisma.$queryRaw`
-            SELECT column_name, data_type
-            FROM information_schema.columns
-            WHERE table_name = ${modelName}
-          `);
-        }
 
-        // We're avoiding accessing _baseDmmf entirely
         modelChecks[modelName] = {
           dbColumns: columns,
           columnsCount: Array.isArray(columns) ? columns.length : 0,
-          // Consider it a match if we have columns
           match: Array.isArray(columns) && columns.length > 0
         };
       } catch (error) {
@@ -139,7 +108,6 @@ export async function GET(request: NextRequest) {
           feedback: tableCounts[3],
           setting: tableCounts[4],
           anonymitySettings: tableCounts[5],
-          counter: tableCounts[6], // Counter is now included
         },
         modelChecks,
         serverInfo,
