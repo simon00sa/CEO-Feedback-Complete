@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-export default {
+const config = {
   darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -63,8 +63,7 @@ export default {
       },
       borderColor: {
         DEFAULT: 'hsl(var(--border))',
-        // Add explicit border color to define border-border class
-        'border': 'hsl(var(--border))'
+        border: 'hsl(var(--border))', // Make sure this is NOT commented out
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -73,20 +72,12 @@ export default {
       },
       keyframes: {
         'accordion-down': {
-          from: {
-            height: '0'
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)'
-          }
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' }
         },
         'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)'
-          },
-          to: {
-            height: '0'
-          }
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' }
         }
       },
       animation: {
@@ -97,3 +88,5 @@ export default {
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
+
+export default config;
