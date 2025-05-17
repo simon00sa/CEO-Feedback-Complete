@@ -3,10 +3,13 @@ import { PrismaClient } from '@prisma/client';
 // Create a global PrismaClient instance
 const prisma = new PrismaClient();
 
-// Export the prisma instance for use in other files
+// Export the prisma client as a default export
+export default prisma;
+
+// Also export it as a named export for compatibility with existing code
 export { prisma };
 
-// Re-export all the existing mock database functions
+// Import types from schema
 import { type User, type Message, type Feedback, type Response, type Department, type Organization, type Settings, type Analytics } from './schema';
 
 // Mock data for demonstration
