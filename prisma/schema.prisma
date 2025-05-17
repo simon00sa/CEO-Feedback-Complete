@@ -206,15 +206,3 @@ model Counter {
   
   @@map("counters") // Lowercase table name for consistency
 }
-
-# Prisma schema addition for Counter model
-# Add this at the end of your prisma/schema.prisma file
-
-model Counter {
-  id      Int     @id @default(autoincrement())
-  name    String  @unique
-  display String?
-  count   Int     @default(0)
-  
-  @@map("counters") // Lowercase table name for consistency
-}
