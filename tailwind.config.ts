@@ -65,6 +65,11 @@ const config = {
         DEFAULT: 'hsl(var(--border))',
         border: 'hsl(var(--border))', // Make sure this is NOT commented out
       },
+      // Add backgroundColor configuration to fix bg-background error
+      backgroundColor: {
+        DEFAULT: 'hsl(var(--background))',
+        background: 'hsl(var(--background))', // Fix for bg-background
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
@@ -88,11 +93,14 @@ const config = {
   },
   plugins: [
     require("tailwindcss-animate"),
-    // Add this custom plugin to handle border-border directly
+    // Update the custom plugin to also handle bg-background
     function({ addUtilities }) {
       const newUtilities = {
         '.border-border': {
           borderColor: 'hsl(var(--border))'
+        },
+        '.bg-background': {
+          backgroundColor: 'hsl(var(--background))'
         }
       }
       addUtilities(newUtilities)
