@@ -12,7 +12,7 @@ const config = {
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
-        'text-foreground': 'hsl(var(--foreground))', // Add this line for text-foreground
+        'text-foreground': 'hsl(var(--foreground))',
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',
@@ -41,7 +41,8 @@ const config = {
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))'
+          foreground: 'hsl(var(--muted-foreground))',
+          '30': 'hsl(var(--muted) / 0.3)'  // Add this for bg-muted/30
         },
         accent: {
           DEFAULT: 'hsl(var(--accent))',
@@ -66,7 +67,7 @@ const config = {
         background: 'hsl(var(--background))',
       },
       textColor: {
-        foreground: 'hsl(var(--foreground))', // Add this for text-foreground
+        foreground: 'hsl(var(--foreground))',
       },
       borderColor: {
         DEFAULT: 'hsl(var(--border))',
@@ -95,7 +96,7 @@ const config = {
   },
   plugins: [
     require("tailwindcss-animate"),
-    // Add direct utility classes
+    // Direct utility classes
     function({ addUtilities }) {
       addUtilities({
         '.bg-background': {
@@ -106,6 +107,9 @@ const config = {
         },
         '.text-foreground': {
           color: 'hsl(var(--foreground))'
+        },
+        '.bg-muted\\/30': {  // Escape the / character
+          backgroundColor: 'hsl(var(--muted) / 0.3)'
         }
       })
     }
