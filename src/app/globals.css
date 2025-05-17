@@ -63,11 +63,11 @@
 
 @layer base {
   * {
-    /* Change this line to fix the border-border issue */
     @apply border-[hsl(var(--border))];
   }
   body {
-    @apply bg-background text-foreground;
+    /* Change this line to use direct HSL value instead of bg-background utility */
+    @apply bg-[hsl(var(--background))] text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
