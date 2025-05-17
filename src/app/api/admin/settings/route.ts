@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma, { Prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma'; // Import Prisma client instance
+import { Prisma } from '@prisma/client'; // Import Prisma namespace directly from @prisma/client
 
 // Add runtime specification for Vercel deployment
 export const runtime = 'nodejs';
