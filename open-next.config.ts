@@ -1,18 +1,19 @@
-// default open-next.config.ts file created by @opennextjs/cloudflare
 
-import cache from "@opennextjs/cloudflare/kvCache";
+// Comment out the problematic import
+// import cache from "@opennextjs/cloudflare/kvCache";
 
 const config = {
   default: {
     override: {
       wrapper: "cloudflare-node",
       converter: "edge",
-      incrementalCache: async () => cache,
+      // Change the incrementalCache to not use the missing module
+      // incrementalCache: async () => cache,
+      incrementalCache: "dummy", // Using "dummy" as a fallback
       tagCache: "dummy",
       queue: "dummy",
     },
   },
-
   middleware: {
     external: true,
     override: {
@@ -21,7 +22,6 @@ const config = {
       proxyExternalRequest: "fetch",
     },
   },
-
   dangerous: {
     enableCacheInterception: false,
   },
