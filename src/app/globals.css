@@ -72,7 +72,7 @@
   }
 }
 
-/* Keep all the custom scrollbar classes */
+/* Keep all the custom scrollbar classes but use direct HSL values */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -87,15 +87,19 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  @apply bg-muted/30;
+  /* Replace bg-muted/30 with a direct HSL value */
+  background-color: hsla(var(--muted), 0.3);
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  @apply bg-muted rounded-full;
+  /* Replace bg-muted with a direct HSL value */
+  background-color: hsl(var(--muted));
+  border-radius: 9999px; /* Replaces rounded-full */
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted/80;
+  /* Replace bg-muted/80 with a direct HSL value */
+  background-color: hsla(var(--muted), 0.8);
 }
 
 .resizable-sidebar {
