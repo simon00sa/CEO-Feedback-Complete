@@ -12,6 +12,7 @@ const config = {
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        'text-foreground': 'hsl(var(--foreground))', // Add this line for text-foreground
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',
@@ -64,6 +65,9 @@ const config = {
       backgroundColor: {
         background: 'hsl(var(--background))',
       },
+      textColor: {
+        foreground: 'hsl(var(--foreground))', // Add this for text-foreground
+      },
       borderColor: {
         DEFAULT: 'hsl(var(--border))',
         border: 'hsl(var(--border))',
@@ -91,7 +95,7 @@ const config = {
   },
   plugins: [
     require("tailwindcss-animate"),
-    // Add direct utility classes without fancy plugin options
+    // Add direct utility classes
     function({ addUtilities }) {
       addUtilities({
         '.bg-background': {
@@ -99,6 +103,9 @@ const config = {
         },
         '.border-border': {
           borderColor: 'hsl(var(--border))'
+        },
+        '.text-foreground': {
+          color: 'hsl(var(--foreground))'
         }
       })
     }
