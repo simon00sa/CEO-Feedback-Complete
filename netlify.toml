@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma generate && pnpm build --skip-typescript"
+  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma generate && pnpm build --no-lint"
   publish = ".next"
 [dev]
   command = "pnpm dev"
