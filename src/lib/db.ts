@@ -1,5 +1,12 @@
-// This file contains database functionality for the anonymous feedback platform
+import { PrismaClient } from '@prisma/client';
 
+// Create a global PrismaClient instance
+const prisma = new PrismaClient();
+
+// Export the prisma instance for use in other files
+export { prisma };
+
+// Re-export all the existing mock database functions
 import { type User, type Message, type Feedback, type Response, type Department, type Organization, type Settings, type Analytics } from './schema';
 
 // Mock data for demonstration
