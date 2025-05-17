@@ -70,20 +70,20 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     
     // Apply timeout to database query
-    // Fixed: Use either include or select, but not both at the same time
+    // FIXED: Cannot use both include and select at the root level
     const teams = await withTimeout(prisma.team.findMany({
       orderBy: { name: 'asc' },
       include: { 
         _count: { 
           select: { members: true } 
-        } 
+        }
       },
       // Add pagination for better performance
       skip,
-      take: limit,
+      take: limit
     }));
     
-    // Transform the result to include only the fields we need
+    // Transform the data to include only needed fields
     const formattedTeams = teams.map(team => ({
       id: team.id,
       name: team.name,
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       activeUserCount: team.activeUserCount,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,
-      _count: team._count,
+      _count: team._count
     }));
     
     // For GET requests that can be cached in certain scenarios
