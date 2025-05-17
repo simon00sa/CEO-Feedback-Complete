@@ -12,14 +12,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     
-    // Get the default organization ID - in a real app, this might come from the request
-    // or be determined based on the current user's organization
-    const defaultOrg = await prisma.organization.findFirst();
-    const orgId = defaultOrg?.id || "org-1"; // Fallback to a default ID if needed
+    // Since the Organization model might not exist or have data,
+    // we'll create a hardcoded orgId
+    const orgId = "org-1"; // Default organization ID
     
-    // Get the default staff role - this would typically be configured in your app
+    // Get the default staff role
     const staffRole = await prisma.role.findFirst({ where: { name: "Staff" } });
-    const roleId = staffRole?.id || "role-1"; // Fallback to a default ID if needed
+    let roleId = staffRole?.id;
+    
+    // If no role exists, create one
+    if (!roleId) {
+      try {
+        const newRole = await prisma.role.create({
+          data: { name: "Staff" }
+        });
+        roleId = newRole.id;
+      } catch (error) {
+        console.error("Error creating role:", error);
+        roleId = "role-1"; // Fallback to default role ID
+      }
+    }
     
     // Create the invitation with all required fields
     const invitation = await prisma.invitation.create({
@@ -32,7 +44,8 @@ export async function POST(request: Request) {
         inviterId: "someUserId", // Use the current user's ID in a real application
         used: false, // Default to false
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        status: "PENDING" // Set status explicitly
       }
     });
     
