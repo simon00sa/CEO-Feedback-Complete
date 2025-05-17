@@ -43,7 +43,7 @@ export function ChatInput({
   
   return (
     <div className={cn(
-      "flex flex-col p-4 border-t border-border bg-card",
+      "flex flex-col p-4 border-t bg-card",
       className
     )}>
       <div className="flex items-end gap-2">
