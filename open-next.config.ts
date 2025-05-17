@@ -6,8 +6,7 @@ const config = {
     override: {
       wrapper: "cloudflare-node",
       converter: "edge",
-      // Change incrementalCache to use dummy instead of the missing module
-      incrementalCache: "dummy", // Previously: async () => cache,
+      incrementalCache: "dummy", // Use "dummy" instead of the async cache function
       tagCache: "dummy",
       queue: "dummy",
     },
