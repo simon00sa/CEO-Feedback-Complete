@@ -1,4 +1,3 @@
-
 // Comment out the problematic import
 // import cache from "@opennextjs/cloudflare/kvCache";
 
@@ -7,9 +6,8 @@ const config = {
     override: {
       wrapper: "cloudflare-node",
       converter: "edge",
-      // Change the incrementalCache to not use the missing module
-      // incrementalCache: async () => cache,
-      incrementalCache: "dummy", // Using "dummy" as a fallback
+      // Fix the incrementalCache to not depend on the missing module
+      incrementalCache: "dummy", // Previously: async () => cache,
       tagCache: "dummy",
       queue: "dummy",
     },
