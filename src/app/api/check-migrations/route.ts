@@ -24,11 +24,10 @@ function captureError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
 }
 
-// Uses Copilot's version detection approach but wraps each property access
-// in proper type checking to avoid TypeScript errors
+// Static version detection that avoids dynamic requires or imports
 function getPrismaVersion(): string {
   try {
-    // Try different ways to access version based on Prisma version
+    // Use a static approach to avoid dynamic requires
     const prismaAny = prisma as any;
     
     if (prismaAny.version && typeof prismaAny.version.client === 'string') {
@@ -43,15 +42,7 @@ function getPrismaVersion(): string {
       return prismaAny.$clientVersion;
     }
     
-    // Last resort - try to access from package.json
-    try {
-      const pkgPath = require.resolve('@prisma/client/package.json');
-      const pkg = require(pkgPath);
-      return pkg.version || 'unknown';
-    } catch (e) {
-      // Ignore package.json error
-    }
-    
+    // Fallback to a hardcoded placeholder
     return 'unknown';
   } catch (e) {
     console.error('Error getting Prisma version:', e);
@@ -88,11 +79,12 @@ export async function GET(request: NextRequest) {
         prisma.feedback.count(),
         prisma.setting.count(),
         prisma.anonymitySettings.count(),
+        prisma.counter.count(), // Now added since Counter model has been added to schema
       ].map((p) => p.catch((e) => ({ error: e.message }))))
     );
 
     const modelChecks: Record<string, any> = {};
-    const modelsToCheck = ['User', 'Invitation', 'Team', 'Feedback'];
+    const modelsToCheck = ['User', 'Invitation', 'Team', 'Feedback', 'Counter'];
 
     for (const modelName of modelsToCheck) {
       try {
@@ -112,38 +104,12 @@ export async function GET(request: NextRequest) {
           `);
         }
 
-        // Safe access to _baseDmmf with fallbacks
-        let modelFields = null;
-        let fieldsCount = 0;
-        
-        try {
-          const prismaAny = prisma as any;
-          if (prismaAny._baseDmmf && prismaAny._baseDmmf.datamodel && prismaAny._baseDmmf.datamodel.models) {
-            const model = prismaAny._baseDmmf.datamodel.models.find((m: any) => m.name === modelName);
-            if (model && Array.isArray(model.fields)) {
-              modelFields = model.fields.map((field: any) => ({
-                name: field.name,
-                type: field.type,
-                kind: field.kind,
-                isRequired: field.isRequired,
-              }));
-              fieldsCount = modelFields.length;
-            }
-          }
-        } catch (err) {
-          // Silently fail - _baseDmmf is internal and might not be available
-          console.log(`Cannot access model info for ${modelName}: ${err}`);
-        }
-
-        const columnsCount = Array.isArray(columns) ? columns.length : 0;
-        
+        // We're avoiding accessing _baseDmmf entirely
         modelChecks[modelName] = {
           dbColumns: columns,
-          prismaFields: modelFields,
-          columnsCount: columnsCount,
-          fieldsCount: fieldsCount,
-          // Consider it a match if we have columns, regardless of Prisma fields
-          match: columnsCount > 0
+          columnsCount: Array.isArray(columns) ? columns.length : 0,
+          // Consider it a match if we have columns
+          match: Array.isArray(columns) && columns.length > 0
         };
       } catch (error) {
         modelChecks[modelName] = { error: error instanceof Error ? error.message : String(error) };
@@ -173,6 +139,7 @@ export async function GET(request: NextRequest) {
           feedback: tableCounts[3],
           setting: tableCounts[4],
           anonymitySettings: tableCounts[5],
+          counter: tableCounts[6], // Counter is now included
         },
         modelChecks,
         serverInfo,
