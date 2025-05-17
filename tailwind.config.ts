@@ -86,7 +86,18 @@ const config = {
       }
     }
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    // Add this custom plugin to handle border-border directly
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.border-border': {
+          borderColor: 'hsl(var(--border))'
+        }
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 } satisfies Config;
 
 export default config;
