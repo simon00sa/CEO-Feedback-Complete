@@ -65,7 +65,6 @@ const config = {
         DEFAULT: 'hsl(var(--border))',
         border: 'hsl(var(--border))', 
       },
-      // Add backgroundColor configuration
       backgroundColor: {
         DEFAULT: 'hsl(var(--background))',
         background: 'hsl(var(--background))',
@@ -93,6 +92,7 @@ const config = {
   },
   plugins: [
     require("tailwindcss-animate"),
+    // Update custom plugin to include the exact utility classes
     function({ addUtilities }) {
       const newUtilities = {
         '.border-border': {
@@ -102,7 +102,7 @@ const config = {
           backgroundColor: 'hsl(var(--background))'
         }
       }
-      addUtilities(newUtilities)
+      addUtilities(newUtilities, { respectPrefix: true, respectImportant: true })
     }
   ],
 } satisfies Config;
