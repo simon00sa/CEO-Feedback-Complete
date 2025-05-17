@@ -1,5 +1,4 @@
 "use client"
-
 import { useState } from "react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { DashboardAnalytics } from "@/components/dashboard/dashboard-analytics"
@@ -8,12 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("analytics")
-
+  
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex items-center justify-between h-14 px-4 border-b border-border">
+        <div className="flex items-center justify-between h-14 px-4 border-b">
           <h1 className="text-lg font-medium">Leadership Dashboard</h1>
           <div className="w-[400px]">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
