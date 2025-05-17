@@ -63,7 +63,8 @@
 
 @layer base {
   * {
-    @apply border-border;
+    /* Change this line to fix the border-border issue */
+    @apply border-[hsl(var(--border))];
   }
   body {
     @apply bg-background text-foreground;
@@ -71,6 +72,7 @@
   }
 }
 
+/* Keep all the custom scrollbar classes */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
