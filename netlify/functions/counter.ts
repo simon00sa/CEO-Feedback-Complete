@@ -13,7 +13,7 @@ interface StatsResponse {
   recentAccess: AccessLog[];
 }
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event, _context) => {
   try {
     const { headers } = event;
     const cookies = headers.cookie ? parseCookies(headers.cookie) : {};
