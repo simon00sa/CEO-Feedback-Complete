@@ -26,6 +26,42 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  
+  // Fix webpack conflicts with LRU cache and other Node.js modules
+  webpack: (config, { webpack, isServer }) => {
+    if (isServer) {
+      // Force lru-cache to resolve to a new version that works with webpack 5
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'lru-cache': require.resolve('lru-cache')
+      };
+    }
+    
+    // Avoid issues with problematic packages
+    config.externals = [...(config.externals || []), 'canvas', 'jsdom'];
+    
+    // Add fallbacks for Node.js modules
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      os: false,
+    };
+    
+    return config;
+  },
+  
+  // Experimental features for compatibility
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+    outputFileTracingExcludes: {
+      '*': [
+        'node_modules/@swc/core-linux-x64-gnu',
+        'node_modules/@swc/core-linux-x64-musl',
+        'node_modules/@esbuild/linux-x64',
+      ],
+    },
+  },
 };
 
 module.exports = nextConfig;
