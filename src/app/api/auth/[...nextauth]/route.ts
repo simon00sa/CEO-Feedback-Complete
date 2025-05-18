@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// Add runtime specification for Vercel deployment
+// Runtime configuration that works with both Netlify and Node.js
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Max execution time in seconds
+// Removed Vercel-specific maxDuration - Netlify configures timeouts in netlify.toml
 
 // Create the handler with imported authOptions
 const handler = NextAuth(authOptions);
