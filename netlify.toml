@@ -1,15 +1,23 @@
 [build]
-  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma generate && pnpm build --no-lint"
+  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma generate && pnpm build"
   publish = ".next"
+
+[build.environment]
+  NODE_OPTIONS = "--max_old_space_size=4096"
+  DEBUG = "prisma:*"
+
 [dev]
   command = "pnpm dev"
   port = 3000
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
   external_node_modules = ["@prisma/client", "@prisma/engines"]
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
 [context.production.environment]
   NODE_VERSION = "20.11.1"
   PNPM_VERSION = "10.11.0"
