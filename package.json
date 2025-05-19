@@ -12,7 +12,9 @@
     "prisma:migrate": "prisma migrate deploy",
     "postinstall": "prisma generate",
     "cleanup:vercel": "node scripts/cleanup-vercel.js",
-    "prepare-netlify": "npm run cleanup:vercel && npm install --save-dev crypto-browserify"
+    "prepare-netlify": "npm run cleanup:vercel && npm install --save-dev crypto-browserify",
+    "fix:db": "node fix-prisma-constructor.js",
+    "fix:netlify": "node fix-netlify-deployment.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.9.1",
