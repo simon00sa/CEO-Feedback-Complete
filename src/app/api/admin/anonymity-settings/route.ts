@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma"; // We'll create this file next
+import { prisma } from "@/lib/db"; // Ensure using the same prisma import as other files
+
+export const config = {
+  runtime: 'edge', // For Netlify Edge Functions support
+  regions: ['auto'], // This instructs Netlify to deploy to the edge location closest to the user
+};
 
 interface AnonymitySettingsResponse { 
   id: string;
@@ -21,7 +26,7 @@ export async function GET() {
         { status: 404 }
       );
     }
-
+    
     const response: AnonymitySettingsResponse = {
       id: settings.id,
       minGroupSize: settings.minGroupSize,
@@ -31,7 +36,7 @@ export async function GET() {
       enableGrouping: settings.enableGrouping,
       activityRequirements: settings.activityRequirements
     };
-
+    
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching anonymity settings:', error);
