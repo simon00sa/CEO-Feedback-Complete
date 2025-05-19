@@ -3,7 +3,8 @@ import { authOptions } from "@/lib/auth";
 
 // Runtime configuration that works with both Netlify and Node.js
 export const runtime = 'nodejs';
-// Removed Vercel-specific maxDuration - Netlify configures timeouts in netlify.toml
+// Add maxDuration for Netlify (stays under their 26-second limit)
+export const maxDuration = 25;
 
 // Create the handler with imported authOptions
 const handler = NextAuth(authOptions);
