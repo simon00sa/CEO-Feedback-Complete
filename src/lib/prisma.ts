@@ -1,17 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 
-// Set options for PrismaClient
+// Set options for PrismaClient - removed invalid previewFeatures
 const prismaOptions = {
   log: process.env.NODE_ENV === 'development' 
     ? ['query', 'error', 'warn'] 
     : ['error'],
-  // connectionLimit is not a valid PrismaClient option and will be ignored
 };
 
 // Create a singleton pattern for the Prisma client
 const prismaClientSingleton = () => {
   const client = new PrismaClient(prismaOptions);
-
+  
   // Add connection event handlers for better debugging
   client.$on('query', (e) => {
     if (process.env.DEBUG_PRISMA === 'true') {
@@ -19,7 +18,7 @@ const prismaClientSingleton = () => {
       console.log('Duration: ' + e.duration + 'ms');
     }
   });
-
+  
   // Handle connection errors
   client.$on('error', (e) => {
     console.error('Prisma Client error:', e);
@@ -27,7 +26,7 @@ const prismaClientSingleton = () => {
       console.warn('Attempting to recover from Prisma connection error');
     }
   });
-
+  
   return client;
 };
 
@@ -37,8 +36,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClientSingleton | undefined;
 };
 
+// Initialize the Prisma client
 const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
 
+// Health check function
 const healthCheck = async () => {
   try {
     await prisma.$queryRaw`SELECT 1 as connected`;
@@ -49,13 +50,12 @@ const healthCheck = async () => {
   }
 };
 
+// Disconnect function
 const disconnect = async () => {
   await prisma.$disconnect();
 };
 
-export default prisma;
-export { prisma, healthCheck, disconnect };
-
+// Properly handle connection termination in production
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 } else {
@@ -68,3 +68,6 @@ if (process.env.NODE_ENV !== 'production') {
     });
   });
 }
+
+export default prisma;
+export { prisma, healthCheck, disconnect };
