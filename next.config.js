@@ -51,17 +51,29 @@ const nextConfig = {
     return config;
   },
   
-  // Experimental features for compatibility
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
-    outputFileTracingExcludes: {
-      '*': [
-        'node_modules/@swc/core-linux-x64-gnu',
-        'node_modules/@swc/core-linux-x64-musl',
-        'node_modules/@esbuild/linux-x64',
-      ],
-    },
+  // External packages that should be treated as external dependencies
+  // Updated from experimental.serverComponentsExternalPackages
+  serverExternalPackages: ['@prisma/client', 'prisma'],
+  
+  // File tracing excludes moved from experimental
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@swc/core-linux-x64-gnu',
+      'node_modules/@swc/core-linux-x64-musl',
+      'node_modules/@esbuild/linux-x64',
+    ],
   },
+  
+  // Empty experimental section to avoid warnings
+  experimental: {
+    // Leave empty since we moved configurations to their proper locations
+  },
+  
+  // Additional Netlify-specific optimizations
+  poweredByHeader: false, // Remove the X-Powered-By header for security
+  
+  // Cache optimization
+  generateEtags: true,
 };
 
 module.exports = nextConfig;
