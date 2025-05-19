@@ -1,29 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma'; // Use shared Prisma instance
 
-// Add runtime specification for Vercel deployment
+// Adjust runtime specification for Netlify deployment
 export const runtime = 'nodejs';
-export const maxDuration = 30; // Max execution time in seconds
+export const maxDuration = 25; // Below Netlify's 26-second limit
 
-// Define headers for all responses
+// Define headers for all responses with Netlify-specific cache tags
 const headers = {
   'Cache-Control': 'no-store, must-revalidate',
   'Content-Type': 'application/json',
+  'X-Netlify-Cache-Tag': 'schema-inspector'
 };
 
-// Helper function to capture and log errors
+// Helper function to capture and log errors with Netlify context
 function captureError(error: unknown, context: string) {
-  console.error(`[${context}]`, error);
+  console.error(`[Netlify:${context}]`, error);
   // Add your error monitoring service here if needed
 }
 
+// Timeout constant for database operations
+const TIMEOUT = 8000; // 8 seconds (appropriate for Netlify functions)
+
+// Helper function to add timeout to promises
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = TIMEOUT): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]) as Promise<T>;
+}
+
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Only allow on non-production environments unless explicitly requested
     const url = new URL(request.url);
     const forceCheck = url.searchParams.get('force') === 'true';
     const isProduction = process.env.NODE_ENV === 'production';
     const modelName = url.searchParams.get('model') || 'Invitation';
+    const netlifyContext = process.env.CONTEXT || 'unknown';
     
     if (isProduction && !forceCheck) {
       return NextResponse.json({
@@ -33,12 +50,29 @@ export async function GET(request: NextRequest) {
     }
     
     // Get the schema information from Prisma
-    const dmmf = (prisma as any)._baseDmmf;
+    // We use a try/catch here as DMMF access can sometimes fail in serverless
+    let dmmf;
+    try {
+      dmmf = (prisma as any)._baseDmmf;
+    } catch (dmmfError) {
+      captureError(dmmfError, 'schema-dmmf-access');
+      
+      // Fallback to a more resilient approach for Netlify functions
+      try {
+        // Try to access client object which may be more reliable in serverless
+        dmmf = (prisma as any)._clientEngineType?.dmmf || 
+               (prisma as any)._engineConfig?.document?.dmmf;
+      } catch (fallbackError) {
+        captureError(fallbackError, 'schema-dmmf-fallback');
+      }
+    }
     
     if (!dmmf) {
       return NextResponse.json({
         success: false,
-        message: "Prisma DMMF not available"
+        message: "Prisma DMMF not available in Netlify function",
+        netlifyContext,
+        timestamp: new Date().toISOString()
       }, { status: 500, headers });
     }
     
@@ -75,7 +109,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: false,
           message: `Model '${modelName}' not found in schema`,
-          availableModels: dmmf.datamodel?.models?.map((m: any) => m.name) || []
+          availableModels: dmmf.datamodel?.models?.map((m: any) => m.name) || [],
+          netlifyContext,
+          responseTimeMs: Date.now() - startTime,
+          timestamp: new Date().toISOString()
         }, { status: 404, headers });
       }
       
@@ -99,32 +136,54 @@ export async function GET(request: NextRequest) {
       }];
     }
     
-    // Get database schema version
+    // Get database schema version, with timeout and error handling for Netlify
     let databaseSchema = undefined;
     if (process.env.DATABASE_URL?.includes('postgres')) {
       try {
-        const schemaInfo = await prisma.$queryRaw`
-          SELECT 
-            table_name, 
-            column_name, 
-            data_type 
-          FROM 
-            information_schema.columns 
-          WHERE 
-            table_schema = 'public' 
-            AND table_name = ${modelName.toLowerCase()}
-        `;
-        databaseSchema = schemaInfo;
-      } catch (error) {
-        console.warn('Could not fetch database schema:', error);
+        // Use withTimeout to prevent hanging the serverless function
+        databaseSchema = await withTimeout(
+          prisma.$queryRaw`
+            SELECT 
+              table_name, 
+              column_name, 
+              data_type 
+            FROM 
+              information_schema.columns 
+            WHERE 
+              table_schema = 'public' 
+              AND table_name = ${modelName.toLowerCase()}
+          `,
+          6000 // 6 second timeout for this specific query
+        );
+      } catch (dbError) {
+        captureError(dbError, 'schema-db-query');
+        console.warn('Could not fetch database schema:', dbError);
+        
+        // Include error info in the response but don't fail the request
+        databaseSchema = { 
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+          note: "Unable to fetch schema from database, but Prisma schema is still available above"
+        };
       }
     }
+    
+    const responseTime = Date.now() - startTime;
     
     return NextResponse.json({
       success: true,
       models: modelData,
       databaseSchema: databaseSchema,
       prismaVersion: prisma._engineConfig?.version || 'unknown',
+      netlifySpecific: {
+        context: netlifyContext,
+        buildId: process.env.BUILD_ID || 'unknown',
+        deployId: process.env.DEPLOY_ID || 'unknown',
+        functionName: process.env.AWS_LAMBDA_FUNCTION_NAME || 'unknown'
+      },
+      performance: {
+        responseTimeMs: responseTime,
+        status: responseTime < 500 ? 'good' : responseTime < 2000 ? 'moderate' : 'slow'
+      },
       message: "Schema information retrieved successfully",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV
@@ -133,10 +192,15 @@ export async function GET(request: NextRequest) {
     captureError(error, 'schema-inspect');
     console.error('Error retrieving schema information:', error);
     
+    const responseTime = Date.now() - startTime;
+    
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : String(error),
       stack: process.env.NODE_ENV !== 'production' && error instanceof Error ? error.stack : undefined,
+      netlifyContext: process.env.CONTEXT || 'unknown',
+      responseTimeMs: responseTime,
+      timestamp: new Date().toISOString(),
       message: "Failed to retrieve schema information"
     }, { status: 500, headers });
   }
