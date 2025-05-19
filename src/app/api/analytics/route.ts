@@ -5,32 +5,33 @@ import prisma from '@/lib/prisma';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { $Enums } from '@prisma/client';
 
-// Add runtime specification for Vercel deployment
+// Configure for Netlify serverless functions
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Max execution time in seconds
+export const maxDuration = 25; // Below Netlify's 26-second limit
 
 // Define headers for all responses
 const headers = {
   'Cache-Control': 'no-store',
   'Content-Type': 'application/json',
+  'X-Netlify-Cache-Tag': 'analytics-api'
 };
 
-// Timeout constant for long-running operations
-const TIMEOUT = 30000; // 30 seconds
+// Timeout constant for Netlify serverless
+const TIMEOUT = 20000; // 20 seconds (below Netlify's limit)
 
 // Helper function to add timeout to promises
-async function withTimeout<T>(promise: Promise<T>): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = TIMEOUT): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => 
-      setTimeout(() => reject(new Error('Request timeout')), TIMEOUT)
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
     )
   ]) as Promise<T>;
 }
 
-// Helper function to capture and log errors
+// Helper function to capture and log errors with Netlify context
 function captureError(error: unknown, context: string) {
-  console.error(`[${context}]`, error);
+  console.error(`[Netlify:${context}]`, error);
   // Add your error monitoring service here if needed
 }
 
@@ -50,24 +51,39 @@ type FeedbackItem = {
 };
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        timestamp: new Date().toISOString()
+      }, { status: 401, headers });
     }
     
-    const user = await withTimeout(prisma.user.findUnique({
-      where: { email: session.user.email || '' },
-      include: { role: true },
-    }));
+    // Shorter timeout for user query
+    const user = await withTimeout(
+      prisma.user.findUnique({
+        where: { email: session.user.email || '' },
+        include: { role: true },
+      }),
+      8000 // 8 second timeout
+    );
     
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404, headers });
+      return NextResponse.json({ 
+        error: 'User not found',
+        timestamp: new Date().toISOString()
+      }, { status: 404, headers });
     }
     
     if (!['executive', 'admin'].includes(user.role?.name || '')) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403, headers });
+      return NextResponse.json({ 
+        error: 'Insufficient permissions',
+        timestamp: new Date().toISOString()
+      }, { status: 403, headers });
     }
     
     // Parse query parameters for filtering
@@ -102,27 +118,30 @@ export async function GET(request: NextRequest) {
     }
     
     // Fetch feedback from Prisma with timeout protection
-    const prismaFeedbackItems = await withTimeout(prisma.feedback.findMany({
-      where: whereClause,
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: limit,
-      // Select only needed fields for performance
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        updatedAt: true,
-        status: true,
-        analysisSummary: true,
-        sentiment: true,
-        topics: true,
-        // Omit submittedFromIP for privacy unless specifically needed
-        userAgent: true,
-        processingLog: true
-      }
-    }));
+    const prismaFeedbackItems = await withTimeout(
+      prisma.feedback.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: limit,
+        // Select only needed fields for performance
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          status: true,
+          analysisSummary: true,
+          sentiment: true,
+          topics: true,
+          // Omit submittedFromIP for privacy unless specifically needed
+          userAgent: true,
+          processingLog: true
+        }
+      }),
+      15000 // 15 second timeout for data query
+    );
     
     // Transform the data to match the FeedbackItem type
     const feedbackItems: FeedbackItem[] = prismaFeedbackItems.map(item => ({
@@ -161,10 +180,14 @@ export async function GET(request: NextRequest) {
       });
     });
     
+    // Calculate response time
+    const responseTime = Date.now() - startTime;
+    
     // Custom cache headers for analytics - shorter cache time
     const analyticsHeaders = {
       ...headers,
-      'Cache-Control': 'private, max-age=300, s-maxage=600' // 5 minutes private, 10 minutes shared
+      'Cache-Control': 'private, max-age=300, s-maxage=600', // 5 minutes private, 10 minutes shared
+      'X-Response-Time': `${responseTime}ms`
     };
     
     return NextResponse.json({ 
@@ -172,15 +195,27 @@ export async function GET(request: NextRequest) {
       sentimentBreakdown,
       statusBreakdown,
       topicsFrequency,
-      recentFeedback: feedbackItems.slice(0, 10) // Return only 10 most recent items
+      recentFeedback: feedbackItems.slice(0, 10), // Return only 10 most recent items
+      meta: {
+        responseTimeMs: responseTime,
+        netlifyContext: process.env.CONTEXT || 'unknown',
+        timestamp: new Date().toISOString(),
+        limit
+      }
     }, { status: 200, headers: analyticsHeaders });
     
   } catch (error) {
     captureError(error, 'analytics-api');
     console.error('Error in analytics route:', error);
+    
+    const responseTime = Date.now() - startTime;
+    
     return NextResponse.json({ 
       error: 'Failed to fetch analytics',
-      details: error instanceof Error ? error.message : String(error)
+      details: error instanceof Error ? error.message : String(error),
+      responseTimeMs: responseTime,
+      netlifyContext: process.env.CONTEXT || 'unknown',
+      timestamp: new Date().toISOString()
     }, { status: 500, headers });
   }
 }
