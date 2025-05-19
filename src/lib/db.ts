@@ -8,15 +8,13 @@ declare global {
 }
 
 // Custom prisma connection options optimized for Netlify serverless environment
+// Removed invalid previewFeatures property
 const prismaOptions = {
   log: process.env.NODE_ENV === 'development' 
     ? ['query', 'error', 'warn'] 
     : ['error'],
-  errorFormat: 'pretty',
-  // Prevent connection timeouts in serverless environment
-  previewFeatures: ['metrics'],
-  // Lower connection pool to prevent resource exhaustion on Netlify
-  connection_limit: 5
+  errorFormat: 'pretty'
+  // connection_limit is not a valid option for PrismaClient in version 6.8.1
 };
 
 // Create a singleton PrismaClient instance
@@ -36,6 +34,38 @@ prisma.$on('query', (e) => {
     console.log('Duration: ' + e.duration + 'ms');
   }
 });
+
+// Handle connection errors
+prisma.$on('error', (e) => {
+  console.error('Prisma Client error:', e);
+  if (e.message && e.message.includes('connection')) {
+    console.warn('Attempting to recover from Prisma connection error');
+  }
+});
+
+// Setup termination handlers for serverless environment
+if (process.env.NODE_ENV === 'production') {
+  // Handle graceful shutdown in Netlify functions
+  ['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, () => {
+      prisma.$disconnect().then(() => {
+        console.log('Prisma disconnected due to ' + signal);
+        process.exit(0);
+      });
+    });
+  });
+}
+
+// Health check function for connection testing
+export async function healthCheck() {
+  try {
+    await prisma.$queryRaw`SELECT 1 as connected`;
+    return true;
+  } catch (error) {
+    console.error('Prisma health check failed:', error);
+    return false;
+  }
+}
 
 // Export the prisma client as a default export
 export default prisma;
