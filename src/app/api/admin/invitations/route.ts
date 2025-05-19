@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 import { isUserAdmin } from "@/lib/auth";
 
 export const config = {
-  runtime: 'edge', // For Netlify Edge Functions support
-  regions: ['auto'], // This instructs Netlify to deploy to the edge location closest to the user
+  runtime: 'edge',
+  regions: ['auto'], // Use closest region to user for better performance
 };
 
 export async function POST(request: Request) {
@@ -12,9 +12,14 @@ export async function POST(request: Request) {
     // Extract email from request body
     const { email } = (await request.json()) as { email: string };
     
-    // Get user ID from session (you'll need to implement this based on your auth setup)
-    const userId = request.headers.get("x-user-id") || "someUserId"; // Replace with actual session handling
-
+    // Get user ID from session or header
+    // In a real app, you should implement proper session handling here
+    // This is a placeholder - replace with your actual auth implementation
+    const authHeader = request.headers.get("authorization");
+    const userId = authHeader?.startsWith("Bearer ") 
+      ? authHeader.substring(7) // Extract token
+      : "someUserId"; // Fallback for development
+    
     // Check if the user is an admin
     if (!await isUserAdmin(userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -41,15 +46,22 @@ export async function POST(request: Request) {
       }
     }
     
+    // Create a unique token using crypto API
+    const tokenBytes = new Uint8Array(32);
+    crypto.getRandomValues(tokenBytes);
+    const token = Array.from(tokenBytes)
+                     .map(b => b.toString(16).padStart(2, '0'))
+                     .join('');
+    
     // Create the invitation with all required fields
     const invitation = await prisma.invitation.create({
       data: {
         email,
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiry
-        token: crypto.randomUUID(), // Generate a random token
+        token, // Use the generated token
         orgId: orgId,
         roleId: roleId,
-        inviterId: userId, // Use the user ID from the session
+        inviterId: userId, // Use the user ID from session/header
         used: false, // Default to false
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -57,12 +69,24 @@ export async function POST(request: Request) {
       }
     });
     
-    // Return the created invitation
-    return NextResponse.json(invitation);
+    // Return the created invitation, but don't expose the token in the response
+    const { token: _, ...safeInvitation } = invitation;
+    return NextResponse.json(safeInvitation);
   } catch (error) {
-    console.error("Error creating invitation:", error);
+    // Enhanced error handling for Netlify environment
+    const errorMessage = (error as Error).message;
+    console.error("Error creating invitation:", errorMessage);
+    
+    // Check for specific Prisma errors
+    if (errorMessage.includes("Prisma Client")) {
+      return NextResponse.json(
+        { error: "Database connection error", details: "Could not connect to the database" },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: "Failed to create invitation", details: (error as Error).message },
+      { error: "Failed to create invitation", details: errorMessage },
       { status: 500 }
     );
   }
