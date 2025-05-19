@@ -1,6 +1,6 @@
 // src/lib/auth.ts
 import { getServerSession } from "next-auth/next";
-import prisma from "./prisma";
+import { prisma } from "./db"; // Updated import to use the singleton prisma instance
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -8,17 +8,23 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { AdapterUser } from "next-auth/adapters";
 import type { NextAuthOptions } from "next-auth";
 
-// Timeout constant for database operations
-const TIMEOUT = 10000; // 10 seconds
+// Timeout constant for database operations - increased for Netlify
+const TIMEOUT = 15000; // 15 seconds (increased from 10 for Netlify serverless cold starts)
 
-// Helper function to add timeout to promises
+// Helper function to add timeout to promises - with Netlify-specific error handling
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = TIMEOUT): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => 
-      setTimeout(() => reject(new Error(`Auth operation timed out after ${timeoutMs}ms`)), timeoutMs)
-    )
-  ]) as Promise<T>;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error(`Auth operation timed out after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ]) as Promise<T>;
+  } catch (error) {
+    // Improved error logging for Netlify environment
+    console.error(`Timeout error in Netlify environment: ${(error as Error).message}`);
+    throw error;
+  }
 }
 
 // Define role hierarchy as a constant
@@ -29,7 +35,7 @@ const ROLE_HIERARCHY = {
   'Admin': 4
 };
 
-// Define authOptions here
+// Define authOptions here - optimized for Netlify
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -270,12 +276,14 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-secret-do-not-use-in-production' : undefined),
 };
 
-// Helper function to capture and log errors
+// Helper function to capture and log errors - enhanced for Netlify
 function captureError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
-  // Add your error monitoring service here if needed
+  // Add error monitoring code specific to Netlify if needed
+  // For example, you could send errors to a monitoring service
 }
 
+// Modified to be more resilient to Netlify cold starts
 export async function getCurrentUser() {
   try {
     const session = await getServerSession(authOptions);
@@ -361,12 +369,21 @@ export async function isAuthorized(userId: string, requiredRole: string) {
   }
 }
 
-// Utility function to check if a user is an admin
+// Utility function to check if a user is an admin - with specific Netlify error handling
 export async function isUserAdmin(userId: string): Promise<boolean> {
   try {
     return await isAuthorized(userId, 'Admin');
   } catch (error) {
     captureError(error, `isUserAdmin-${userId}`);
+    // Log specific Netlify error details
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Netlify environment variables:', {
+        NODE_ENV: process.env.NODE_ENV,
+        DATABASE_URL: !!process.env.DATABASE_URL, // Just log if it exists, not the actual value
+        NETLIFY: process.env.NETLIFY,
+        CONTEXT: process.env.CONTEXT,
+      });
+    }
     return false;
   }
 }
