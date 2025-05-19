@@ -56,7 +56,6 @@ const nextConfig = {
   },
   
   // External packages that should be treated as external dependencies
-  // Updated from experimental.serverComponentsExternalPackages
   serverExternalPackages: ['@prisma/client', 'prisma'],
   
   // File tracing excludes moved from experimental
@@ -68,12 +67,14 @@ const nextConfig = {
     ],
   },
   
-  // Experimental section for Prisma file inclusion
+  // Moved from experimental to top-level as per warning
+  outputFileTracingIncludes: {
+    '/*': ['./prisma/**/*']
+  },
+  
+  // Experimental section for other features
   experimental: {
-    // Include Prisma files for proper tracing
-    outputFileTracingIncludes: {
-      '/*': ['./prisma/**/*']
-    },
+    // Any other experimental features can stay here
   },
   
   // Additional Netlify-specific optimizations
