@@ -1,52 +1,112 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma'; // Use correct import
 
-export const config = {
-  runtime: 'edge',
-  regions: ['auto'], // This instructs Netlify to deploy to the edge location closest to the user
+// Adjust runtime for Netlify serverless functions
+export const runtime = 'nodejs';
+export const maxDuration = 25; // Below Netlify's 26-second limit
+
+// Define headers for all responses
+const headers = {
+  'Cache-Control': 'no-store, must-revalidate',
+  'Content-Type': 'application/json',
+  'X-Netlify-Cache-Tag': 'admin-check'
 };
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  
-  if (!userId) {
-    return NextResponse.json({ error: "User ID is required" }, { status: 400 });
-  }
+// Timeout constant for database operations
+const TIMEOUT = 8000; // 8 seconds
+
+// Helper function to add timeout to promises
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = TIMEOUT): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]) as Promise<T>;
+}
+
+// Helper function to capture and log errors with Netlify context
+function captureError(error: unknown, context: string) {
+  console.error(`[Netlify:${context}]`, error);
+  // Add your error monitoring service here if needed
+}
+
+// Simple API to check if admin services are working
+export async function GET(request: NextRequest) {
+  const startTime = Date.now();
   
   try {
-    // Add cache headers for improved performance
-    const headers = new Headers();
-    headers.append('Cache-Control', 'max-age=60'); // Cache for 60 seconds
+    // Get Netlify-specific environment info
+    const netlifyContext = process.env.CONTEXT || 'unknown';
+    const netlifyBuildId = process.env.BUILD_ID || 'unknown';
     
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: { select: { name: true } } }, // Select the role name
-    });
+    // Basic database check with timeout
+    let dbStatus = 'unknown';
+    let dbError = null;
     
-    if (!user || !user.role) {
-      return NextResponse.json({ error: "User or role not found" }, { status: 404 });
-    }
-    
-    // Compare the role name to "Admin" (case-sensitive, check your DB for exact value)
-    const isAdmin = user.role.name === "Admin";
-    return NextResponse.json({ isAdmin }, { headers });
-  } catch (error) {
-    // Enhanced error logging for Netlify environment
-    const errorMessage = (error as Error).message;
-    console.error("Error checking admin status:", errorMessage);
-    
-    // Add specific error handling
-    if (errorMessage.includes("Connection refused") || errorMessage.includes("Prisma Client")) {
-      return NextResponse.json(
-        { error: "Database connection error", details: "Could not connect to the database" },
-        { status: 503 }
+    try {
+      await withTimeout(
+        prisma.$queryRaw`SELECT 1 as connected`,
+        5000
       );
+      dbStatus = 'connected';
+    } catch (error) {
+      captureError(error, 'admin-check-db');
+      dbStatus = 'error';
+      dbError = error instanceof Error ? error.message : String(error);
     }
     
-    return NextResponse.json(
-      { error: "Failed to check admin status", details: errorMessage },
-      { status: 500 }
-    );
+    // Check basic environment setup
+    const envCheck = {
+      hasDatabase: !!process.env.DATABASE_URL,
+      hasDirectUrl: !!process.env.DIRECT_URL,
+      hasNextAuth: !!process.env.NEXTAUTH_SECRET && !!process.env.NEXTAUTH_URL,
+      nodeEnv: process.env.NODE_ENV
+    };
+    
+    // Calculate response time
+    const responseTime = Date.now() - startTime;
+    
+    return NextResponse.json({
+      status: 'ok',
+      message: 'Admin API check successful',
+      timestamp: new Date().toISOString(),
+      environment: {
+        netlifyContext,
+        netlifyBuildId,
+        nodeEnv: process.env.NODE_ENV
+      },
+      database: {
+        status: dbStatus,
+        error: dbError,
+        connectionStringConfigured: !!process.env.DATABASE_URL
+      },
+      envCheck,
+      performance: {
+        responseTimeMs: responseTime,
+        status: responseTime < 200 ? 'good' : responseTime < 1000 ? 'moderate' : 'slow'
+      }
+    }, { 
+      status: 200, 
+      headers: {
+        ...headers,
+        'X-Response-Time': `${responseTime}ms`
+      }
+    });
+  } catch (error) {
+    captureError(error, 'admin-check');
+    const responseTime = Date.now() - startTime;
+    
+    return NextResponse.json({
+      status: 'error',
+      message: 'Admin API check failed',
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+      netlifyContext: process.env.CONTEXT || 'unknown',
+      responseTimeMs: responseTime
+    }, { 
+      status: 500, 
+      headers
+    });
   }
 }
