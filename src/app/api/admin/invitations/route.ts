@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isUserAdmin } from "@/lib/auth";
 
+export const config = {
+  runtime: 'edge', // For Netlify Edge Functions support
+  regions: ['auto'], // This instructs Netlify to deploy to the edge location closest to the user
+};
+
 export async function POST(request: Request) {
   try {
     // Extract email from request body
     const { email } = (await request.json()) as { email: string };
     
+    // Get user ID from session (you'll need to implement this based on your auth setup)
+    const userId = request.headers.get("x-user-id") || "someUserId"; // Replace with actual session handling
+
     // Check if the user is an admin
-    if (!await isUserAdmin("someUserId")) {
+    if (!await isUserAdmin(userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     
@@ -41,7 +49,7 @@ export async function POST(request: Request) {
         token: crypto.randomUUID(), // Generate a random token
         orgId: orgId,
         roleId: roleId,
-        inviterId: "someUserId", // Use the current user's ID in a real application
+        inviterId: userId, // Use the user ID from the session
         used: false, // Default to false
         createdAt: new Date(),
         updatedAt: new Date(),
