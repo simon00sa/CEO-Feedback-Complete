@@ -1,3 +1,6 @@
+// Fix for Cache constructor error in Netlify
+import '@/lib/cache-fix';
+
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
