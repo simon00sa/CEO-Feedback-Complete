@@ -1,69 +1,49 @@
-# Netlify configuration for NextAuth & Prisma in serverless environment
-
+# Netlify configuration file
 [build]
-  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma generate && pnpm build"
+  # Directory with the built site (Next.js default output directory)
   publish = ".next"
-
-[build.environment]
-  # Increase Node memory to accommodate Next.js 15.x builds
-  NODE_OPTIONS = "--max_old_space_size=4096"
-  # Enable Prisma query logging for debugging
-  DEBUG = "prisma:*"
-  # Add logging for NextAuth (optional, remove in production)
-  NEXTAUTH_DEBUG = "true"
-  # Force using Edge runtime for API routes when possible
-  NEXT_RUNTIME = "edge"
-  # Set Node and PNPM versions
-  NODE_VERSION = "20.11.1"
-  PNPM_VERSION = "10.11.0"
-
-[dev]
-  command = "pnpm dev"
-  port = 3000
-  # Increase framework timeout for development with large operations
-  framework_timeout = 60000
-
-[functions]
-  # Functions configuration for Netlify serverless
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-  # Include Prisma in external modules to prevent packaging issues
-  external_node_modules = [
-    "@prisma/client", 
-    "@prisma/engines", 
-    "next-auth"
-  ]
-  # Ensure Prisma schema and migration files are included in the function bundle
-  included_files = [
-    "**/*.prisma",
-    "prisma/migrations/**/*", 
-    "prisma/schema.prisma"
-  ]
-  # Set appropriate timeouts for cold starts with database connections
-  timeout = 30
-
-# Handle database connections better in serverless environment
-[functions.database]
-  # Keep connection pool small to prevent resource exhaustion
-  pool_limit = 5
-  # Shorter idle timeout for better resource management
-  idle_timeout = 120
-
-# Edge functions configuration - better for Next.js API routes
-[edge_functions]
-  # Opt to use edge functions when possible for faster response times
-  use_edge_when_possible = true
+  # The build command
+  command = "npm run build"
 
 # Next.js plugin configuration
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-  [plugins.inputs]
-    # Enable Edge middleware processing
-    enable_middleware = true
-    # Setup SSR fallback for performance
-    use_edge_functions = true
 
-# Redirect configuration
+# Deployment settings
+[build.environment]
+  NODE_VERSION = "18.x"
+  # Increase memory limit for builds
+  NODE_OPTIONS = "--max_old_space_size=4096"
+
+# Headers for security and performance
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.supabase.co;"
+
+# Static asset caching
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Function settings
+[functions]
+  # Directory with serverless functions
+  directory = "netlify/functions"
+  # Increase timeout for functions
+  node_bundler = "esbuild"
+
+# Redirects
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
@@ -73,22 +53,23 @@
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
 
-# Cache settings for better performance
-[[headers]]
-  for = "/static/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+# Edge functions configuration - CORRECT FORMAT
+# The error was in this section, using [edge_functions] instead of [[edge_functions]]
+# Each edge function needs its own [[edge_functions]] section
 
-[[headers]]
-  for = "/_next/static/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+# If you want to use edge functions, uncomment and properly configure:
+# [[edge_functions]]
+# path = "/api/auth/*"
+# function = "auth"
 
-# Keep the database connection warm with regular pings
-[[plugins]]
-  package = "@netlify/plugin-functions-scheduled-event"
-  [plugins.inputs]
-    # Ping the database every 5 minutes to prevent cold starts
-    schedule = "0/5 * * * *"
-    command = "curl -s -o /dev/null -w '%{http_code}' $DEPLOY_URL/api/ping"
+# [[edge_functions]]
+# path = "/api/feedback"
+# function = "feedback"
+
+# Enable Next.js Image Optimization on Netlify
+[build.processing]
+  skip_processing = false
+[build.processing.images]
+  compress = true
