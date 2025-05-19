@@ -1,15 +1,18 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Build command to generate Prisma client and build Next.js app
-  command = "prisma generate && next build"
+  # Ensure Prisma is generated then build the app
+  command = "npx prisma generate && NEXT_TELEMETRY_DISABLED=1 npm run build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
+
 # Required Next.js plugin for Netlify
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
 # Enable Lighthouse performance testing
 [[plugins]]
   package = "@netlify/plugin-lighthouse"
+
 # Build environment variables
 [build.environment]
   # Use Node.js 18 (LTS)
@@ -18,6 +21,10 @@
   NODE_OPTIONS = "--max_old_space_size=4096"
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
+  # Make sure Prisma can find its binary
+  PRISMA_QUERY_ENGINE_BINARY = "./node_modules/prisma/query-engine-rhel-openssl-3.0.x"
+  PRISMA_SCHEMA_ENGINE_BINARY = "./node_modules/prisma/schema-engine-rhel-openssl-3.0.x"
+
 # Headers for security and performance
 [[headers]]
   for = "/*"
@@ -30,34 +37,52 @@
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.supabase.co;"
     # Add security.txt location
     Report-To = '{"group":"default","max_age":31536000,"endpoints":[{"url":"/.netlify/functions/report-csp-violations"}]}'
-    # Note: X-Content-Type-Options is already defined above, so we're removing the duplicate here
+
 # Cache static assets for better performance
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
 [[headers]]
   for = "/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
 # Function settings for serverless
 [functions]
   # Directory with serverless functions
   directory = "netlify/functions"
   # Use esbuild for faster bundling
   node_bundler = "esbuild"
-  # Include all files during bundling
-  included_files = ["node_modules/@prisma/client/runtime/**/*", "node_modules/.prisma/**/*"]
+  # Include all files during bundling - important for Prisma
+  included_files = [
+    "node_modules/@prisma/client/runtime/**/*", 
+    "node_modules/@prisma/client/**/*", 
+    "node_modules/.prisma/**/*",
+    "prisma/**/*",
+    ".env",
+    ".env.production"
+  ]
+
 # Enable Next.js Image Optimization on Netlify
 [build.processing]
   skip_processing = false
 [build.processing.images]
   compress = true
+
+# Enable build caching for faster builds
+[build.cache]
+  functions = true
+  pages = true
+  fallback_error = true
+
 # Redirects for API routes and SPA fallback
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+
 # Ensure all routes are handled by Next.js
 [[redirects]]
   from = "/*"
