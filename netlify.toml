@@ -11,7 +11,7 @@
 
 # Deployment settings
 [build.environment]
-  NODE_VERSION = "18.x"
+  NODE_VERSION = "18"
   # Increase memory limit for builds
   NODE_OPTIONS = "--max_old_space_size=4096"
 
