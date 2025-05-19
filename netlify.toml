@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Ensure Prisma is generated then build the app
-  command = "npx prisma generate && NEXT_TELEMETRY_DISABLED=1 npm run build"
+  # Modified command to ensure Prisma works properly in Netlify environment
+  command = "npm run prisma:generate && npm run build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -21,9 +21,8 @@
   NODE_OPTIONS = "--max_old_space_size=4096"
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
-  # Make sure Prisma can find its binary
-  PRISMA_QUERY_ENGINE_BINARY = "./node_modules/prisma/query-engine-rhel-openssl-3.0.x"
-  PRISMA_SCHEMA_ENGINE_BINARY = "./node_modules/prisma/schema-engine-rhel-openssl-3.0.x"
+  # Remove specific binary paths as they're causing issues
+  # PRISMA_QUERY_ENGINE_BINARY and PRISMA_SCHEMA_ENGINE_BINARY removed
 
 # Headers for security and performance
 [[headers]]
@@ -57,9 +56,8 @@
   node_bundler = "esbuild"
   # Include all files during bundling - important for Prisma
   included_files = [
-    "node_modules/@prisma/client/runtime/**/*", 
-    "node_modules/@prisma/client/**/*", 
     "node_modules/.prisma/**/*",
+    "node_modules/@prisma/client/**/*", 
     "prisma/**/*",
     ".env",
     ".env.production"
