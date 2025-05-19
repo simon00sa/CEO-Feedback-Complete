@@ -46,6 +46,10 @@ const nextConfig = {
       fs: false,
       path: false,
       os: false,
+      // Add crypto-browserify to fix Cache constructor error
+      crypto: require.resolve('crypto-browserify'),
+      net: false,
+      tls: false,
     };
     
     return config;
@@ -64,9 +68,12 @@ const nextConfig = {
     ],
   },
   
-  // Empty experimental section to avoid warnings
+  // Experimental section for Prisma file inclusion
   experimental: {
-    // Leave empty since we moved configurations to their proper locations
+    // Include Prisma files for proper tracing
+    outputFileTracingIncludes: {
+      '/*': ['./prisma/**/*']
+    },
   },
   
   // Additional Netlify-specific optimizations
