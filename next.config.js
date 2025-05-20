@@ -8,6 +8,7 @@ const nextConfig = {
     domains: ['avatars.githubusercontent.com'], // Add your necessary domains here
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
+    unoptimized: true, // Add this for Netlify compatibility
   },
   
   // Environment variables
@@ -33,7 +34,11 @@ const nextConfig = {
       // Force lru-cache to resolve to a new version that works with webpack 5
       config.resolve.alias = {
         ...config.resolve.alias,
-        'lru-cache': require.resolve('lru-cache')
+        'lru-cache': require.resolve('lru-cache'),
+        // Add alias for next/dist/compiled/@edge-runtime/primitives/cache
+        'next/dist/compiled/@edge-runtime/primitives/cache': require.resolve(
+          'next/dist/compiled/@edge-runtime/primitives/cache.js'
+        ),
       };
     }
     
@@ -52,7 +57,16 @@ const nextConfig = {
       tls: false,
       // Add additional polyfills for constructor errors
       stream: require.resolve('stream-browserify'),
-      buffer: require.resolve('buffer/')
+      buffer: require.resolve('buffer/'),
+      // Add additional fallbacks for Netlify
+      child_process: false,
+      dns: false,
+      http2: false,
+      process: false,
+      querystring: false,
+      url: false,
+      util: false,
+      zlib: false,
     };
     
     // Add buffer polyfill
@@ -61,6 +75,7 @@ const nextConfig = {
       config.plugins.push(
         new webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
+          process: ['process/browser'],
         })
       );
     }
@@ -69,18 +84,22 @@ const nextConfig = {
   },
   
   // External packages that should be treated as external dependencies
-  serverExternalPackages: ['@prisma/client', 'prisma'],
+  serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
   
-  // File tracing excludes moved from experimental
+  // File tracing excludes
   outputFileTracingExcludes: {
     '*': [
       'node_modules/@swc/core-linux-x64-gnu',
       'node_modules/@swc/core-linux-x64-musl',
       'node_modules/@esbuild/linux-x64',
+      '.git/**',
+      '**/*.test.*',
+      '**/tests/**',
+      '**/*.d.ts',
     ],
   },
   
-  // Moved from experimental to top-level as per warning
+  // Include Prisma files for tracing
   outputFileTracingIncludes: {
     '/*': ['./prisma/**/*']
   },
@@ -94,6 +113,12 @@ const nextConfig = {
     disableOptimizedLoading: true,
     // Add this to fix some page loading issues
     largePageDataBytes: 128 * 1000, // 128KB
+    // Helps with Netlify
+    turbotrace: {
+      logLevel: 'error',
+    },
+    // Improve serverless functions
+    isrMemoryCacheSize: 0,
   },
   
   // Additional Netlify-specific optimizations
@@ -102,14 +127,20 @@ const nextConfig = {
   // Cache optimization
   generateEtags: true,
   
-  // Generate stable build IDs for Netlify
-  generateBuildId: async () => {
-    return `build-${new Date().getTime()}`;
-  },
+  // Simple build ID for Netlify
+  generateBuildId: () => 'build',
   
   // Disable static optimization for auth-related routes
   staticPageGenerationTimeout: 120,
   distDir: '.next',
+  
+  // Reduce logging during build
+  logging: {
+    level: 'warn',
+  },
+  
+  // Set hardcoded base path for Netlify
+  basePath: '',
 };
 
 module.exports = nextConfig;
