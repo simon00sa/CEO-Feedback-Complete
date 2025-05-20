@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Modified command to include both scripts for better debugging
-  command = "node prisma/setup.js && node scripts/prebuild.js && npm run build"
+  # Run the prisma setup script before the build
+  command = "npm run prisma-setup && npm run build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -21,8 +21,8 @@
   NODE_OPTIONS = "--max_old_space_size=4096"
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
-  # Add debug flags for Prisma
-  DEBUG = "prisma:*"
+  # Enable debug logs
+  DEBUG = "prisma:*,next:*"
 
 # Headers for security and performance
 [[headers]]
