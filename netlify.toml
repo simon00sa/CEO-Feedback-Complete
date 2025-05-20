@@ -22,7 +22,11 @@
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
   # Enable debug logs
-  DEBUG = "prisma:*,next:*"
+  DEBUG = "prisma*"
+  # Add Prisma debug logs
+  PRISMA_LOG_QUERIES = "true"
+  # Specify schema path explicitly
+  PRISMA_SCHEMA_PATH = "/opt/build/repo/prisma/schema.prisma"
 
 # Headers for security and performance
 [[headers]]
