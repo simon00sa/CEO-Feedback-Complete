@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Use pnpm commands and run the fix script first
-  command = "node netlify-build-fix.js && pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && node netlify-build-fix.js && pnpm prisma:generate && pnpm build"
+  # Use pnpm commands and simplify the build process
+  command = "node prisma-fix.js && pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && node prisma-fix.js && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 # Required Next.js plugin for Netlify
@@ -26,14 +26,12 @@
   NEXT_RUNTIME = "nodejs"
   # Explicitly disable static optimization for auth routes
   NEXT_DISABLE_STATICPRERENDERS = "true"
-  # Disable Git LFS to avoid reference issues
-  GIT_LFS_ENABLED = "false"
-  # Set Prisma binary paths
-  PRISMA_CLI_BINARY_TARGETS = "linux-musl-openssl-3.0.x"
-  # Verbose logging for debugging
-  PRISMA_CLIENT_ENGINE_TYPE = "binary"
-  # Always generate Prisma Client
-  PRISMA_GENERATE_DATAPROXY = "false"
+  # Set Prisma binary targets
+  PRISMA_CLI_BINARY_TARGETS = "native,linux-musl-openssl-3.0.x"
+  # Force Prisma to use runtime Node.js API
+  PRISMA_CLIENT_ENGINE_TYPE = "library"
+  # Skip Prisma postinstall script
+  SKIP_PRISMA_POSTINSTALL = "true"
 # Headers for security and performance
 [[headers]]
   for = "/*"
