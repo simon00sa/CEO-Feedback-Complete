@@ -11,7 +11,7 @@
     "lint": "next lint",
     "prisma:generate": "node -e \"try { require('child_process').execSync('npx -y prisma generate', {stdio: 'inherit'}); } catch (e) { console.error('Error generating Prisma client'); process.exit(1); }\"",
     "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "npm run prisma:generate",
+    "postinstall": "npx prisma generate",
     "cleanup:vercel": "node scripts/cleanup-vercel.js",
     "prepare-netlify": "npm run cleanup:vercel && npm install --save-dev crypto-browserify",
     "fix:db": "node fix-prisma-constructor.js",
