@@ -8,7 +8,6 @@ declare global {
 }
 
 // Custom prisma connection options optimized for Netlify serverless environment
-// Removed invalid previewFeatures property
 const prismaOptions = {
   log: process.env.NODE_ENV === 'development' 
     ? ['query', 'error', 'warn'] 
@@ -17,13 +16,24 @@ const prismaOptions = {
   // connection_limit is not a valid option for PrismaClient in version 6.8.1
 };
 
-// Create a singleton PrismaClient instance
-const prisma = global.prisma || 
-  new PrismaClient(prismaOptions);
+// Try-catch block for Prisma initialization to handle potential issues
+let prisma: PrismaClient;
 
-// In development, save the prisma instance to global to prevent hot-reloading issues
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
+try {
+  // Create a singleton PrismaClient instance
+  prisma = global.prisma || new PrismaClient(prismaOptions);
+  
+  // In development, save the prisma instance to global to prevent hot-reloading issues
+  if (process.env.NODE_ENV !== 'production') {
+    global.prisma = prisma;
+  }
+} catch (error) {
+  console.error('Error initializing PrismaClient:', error);
+  // Create an instance without options if the previous initialization failed
+  prisma = global.prisma || new PrismaClient();
+  if (process.env.NODE_ENV !== 'production') {
+    global.prisma = prisma;
+  }
 }
 
 // Setup connection event listeners for debugging
@@ -56,15 +66,27 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Health check function for connection testing
-export async function healthCheck() {
-  try {
-    await prisma.$queryRaw`SELECT 1 as connected`;
-    return true;
-  } catch (error) {
-    console.error('Prisma health check failed:', error);
-    return false;
+// Health check function for connection testing with retry logic
+export async function healthCheck(retries = 3, delay = 1000) {
+  let lastError;
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      await prisma.$queryRaw`SELECT 1 as connected`;
+      return true;
+    } catch (error) {
+      console.error(`Prisma health check failed (attempt ${attempt + 1}/${retries}):`, error);
+      lastError = error;
+      
+      if (attempt < retries - 1) {
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
+  
+  console.error('Prisma health check failed after all retries. Last error:', lastError);
+  return false;
 }
 
 // Export the prisma client as a default export
