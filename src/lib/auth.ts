@@ -1,5 +1,7 @@
-// src/lib/auth.ts
-import { getServerSession } from "next-auth/next";
+// Ensure polyfills are loaded first
+import '@/lib/auth-cache-fix';
+
+import { getServerSession } from "next-auth";
 import { prisma } from "./db"; // Updated import to use the singleton prisma instance
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
