@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Use pnpm commands and simplify the build process
-  command = "node prisma-fix.js && pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm build"
+  # Simplified build command without prisma-fix.js
+  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma:generate && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -71,7 +71,7 @@
   # Use esbuild for faster bundling
   node_bundler = "esbuild"
   # External node modules that should be included
-  external_node_modules = ["@prisma/client", "@prisma/engines"]
+  external_node_modules = ["@prisma/client", "@prisma/engines", "prisma"]
   # Include all files during bundling - important for Prisma
   included_files = [
     "node_modules/.prisma/**/*",
