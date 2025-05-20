@@ -35,10 +35,6 @@ const nextConfig = {
       config.resolve.alias = {
         ...config.resolve.alias,
         'lru-cache': require.resolve('lru-cache'),
-        // Add alias for next/dist/compiled/@edge-runtime/primitives/cache
-        'next/dist/compiled/@edge-runtime/primitives/cache': require.resolve(
-          'next/dist/compiled/@edge-runtime/primitives/cache.js'
-        ),
       };
     }
     
@@ -75,7 +71,6 @@ const nextConfig = {
       config.plugins.push(
         new webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
-          process: ['process/browser'],
         })
       );
     }
@@ -110,15 +105,8 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@prisma/client', 'next-auth'],
     // Prevent optimization issues that can cause constructor errors
     optimizeCss: false,
-    disableOptimizedLoading: true,
     // Add this to fix some page loading issues
     largePageDataBytes: 128 * 1000, // 128KB
-    // Helps with Netlify
-    turbotrace: {
-      logLevel: 'error',
-    },
-    // Improve serverless functions
-    isrMemoryCacheSize: 0,
   },
   
   // Additional Netlify-specific optimizations
@@ -133,14 +121,6 @@ const nextConfig = {
   // Disable static optimization for auth-related routes
   staticPageGenerationTimeout: 120,
   distDir: '.next',
-  
-  // Reduce logging during build
-  logging: {
-    level: 'warn',
-  },
-  
-  // Set hardcoded base path for Netlify
-  basePath: '',
 };
 
 module.exports = nextConfig;
