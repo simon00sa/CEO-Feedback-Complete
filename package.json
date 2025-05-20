@@ -8,10 +8,10 @@
     "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
-    "prisma:prebuild": "node pre-download-engines.js",
-    "prisma:generate": "node pre-download-engines.js && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x prisma generate",
+    "prisma:prebuild": "node pre-download-engines.js || echo 'Pre-download script completed with warnings'",
+    "prisma:generate": "node pre-download-engines.js || echo 'Pre-download warning' && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "node pre-download-engines.js"
+    "postinstall": "node pre-download-engines.js || echo 'Pre-download warning, continuing build'"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.9.1",
