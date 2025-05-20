@@ -13,7 +13,6 @@ dist/
 .env.local
 .env.development.local
 .env.test.local
-# DO NOT ignore .env.production as it contains necessary configs for Netlify
 
 # Cache and logs
 .turbo/
@@ -36,11 +35,13 @@ pnpm-debug.log*
 *.swo
 .DS_Store
 
-# DO NOT IGNORE these critical files - explicitly ensure they're included
+# IMPORTANT: DO NOT IGNORE these critical files
+!prisma/
 !prisma/schema.prisma
 !.env.production
 !netlify-prisma-setup.js
 !pre-download-engines.js
+!verify-dependencies.js
 
 # Ensure Prisma migrations are included
 !prisma/migrations/
