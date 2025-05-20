@@ -11,7 +11,11 @@ try {
   if (!fs.existsSync(schemaPath)) {
     console.error(`Error: schema.prisma not found at ${schemaPath}`);
     console.log('Current directory structure:');
-    console.log(execSync('find . -type f -name "schema.prisma"').toString());
+    try {
+      console.log(execSync('find . -type f -name "schema.prisma"').toString());
+    } catch (err) {
+      console.error('Error finding schema.prisma:', err.message);
+    }
     process.exit(1);
   }
   
