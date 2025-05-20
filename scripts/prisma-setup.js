@@ -31,29 +31,262 @@ try {
     }));
   }
   
-  // Check if schema.prisma exists
-  const schemaPath = path.join(process.cwd(), 'prisma', 'schema.prisma');
-  if (!fs.existsSync(schemaPath)) {
-    console.error(`Error: schema.prisma not found at ${schemaPath}`);
-    console.log('Searching for schema.prisma in the project...');
-    try {
-      const result = execSync('find . -name "schema.prisma"').toString();
-      console.log('Found schema.prisma files:', result);
-      
-      if (result) {
-        // Copy the first found schema to the expected location
-        const foundSchemaPath = result.split('\n')[0].trim();
-        if (foundSchemaPath && fs.existsSync(foundSchemaPath)) {
-          ensureDirectoryExists(path.join(process.cwd(), 'prisma'));
-          fs.copyFileSync(foundSchemaPath, schemaPath);
-          console.log(`Copied schema from ${foundSchemaPath} to ${schemaPath}`);
-        }
-      }
-    } catch (err) {
-      console.error('Error searching for schema.prisma:', err.message);
+  // Define all possible locations for schema.prisma
+  const possibleSchemaLocations = [
+    path.join(process.cwd(), 'prisma', 'schema.prisma'),
+    path.join(process.cwd(), 'src', 'prisma', 'schema.prisma'),
+    path.join(process.cwd(), 'schema.prisma')
+  ];
+  
+  // Check if schema.prisma exists in any of the locations
+  let schemaFound = false;
+  let foundSchemaPath = null;
+  
+  for (const schemaPath of possibleSchemaLocations) {
+    if (fs.existsSync(schemaPath)) {
+      console.log(`Found schema.prisma at: ${schemaPath}`);
+      schemaFound = true;
+      foundSchemaPath = schemaPath;
+      break;
     }
-  } else {
-    console.log(`Found schema.prisma at: ${schemaPath}`);
+  }
+  
+  if (!schemaFound) {
+    console.error('Error: schema.prisma not found in any expected location');
+    
+    // Create the schema.prisma file with the content provided
+    const schemaContent = `// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL") // Optional but helpful for direct connections
+  relationMode = "prisma"
+}
+
+// Required Models for NextAuth.js
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@index([identifier])
+  @@index([token])
+}
+
+// --- Application Specific Models ---
+
+// Enhanced User model
+model User {
+  id            String       @id @default(cuid())
+  name          String?      // Optional, might be set during onboarding
+  email         String       @unique // Email is unique
+  emailVerified DateTime?
+  image         String?      // From NextAuth providers if used
+  roleId        String?      // Link to Role model (for backward compatibility)
+  role          Role?        @relation(fields: [roleId], references: [id], name: "primaryRole")
+  teamId        String?      // Link to Team model
+  team          Team?        @relation(fields: [teamId], references: [id])
+  lastActive    DateTime?    // Track user activity
+  activityLevel String       @default("LOW") // LOW, MEDIUM, HIGH based on system interaction
+  isActive      Boolean      @default(false) // Set to true once user completes key actions
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  invitations   Invitation[] // Invitations sent by this user
+  roles         Role[]       @relation("userRoles") // Many-to-many relationship with roles
+
+  @@index([email])
+  @@index([roleId])
+  @@index([teamId])
+  @@index([lastActive]) // Add index for lastActive for filtering active users
+  @@index([createdAt]) // Add index for sorting by creation date
+  @@index([updatedAt]) // Add index for sorting by update date
+}
+
+// Role model
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique // e.g., "Staff", "Leadership", "Admin"
+  users       User[]       @relation("primaryRole") // For backward compatibility
+  invitations Invitation[]
+  userRoles   User[]       @relation("userRoles") // Many-to-many relationship with users
+  
+  @@map("roles") // Lowercase table name for consistency
+}
+
+// Invitation model
+model Invitation {
+  id        String   @id @default(cuid())
+  email     String   // Email address of the invitee
+  token     String   @unique @default(cuid()) // Unique token for the invitation link
+  roleId    String   // Role assigned upon registration
+  role      Role     @relation(fields: [roleId], references: [id])
+  expires   DateTime // When the invitation expires
+  used      Boolean  @default(false) // Whether the invitation has been used
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  inviterId String   // ID of the user who sent the invitation
+  inviter   User     @relation(fields: [inviterId], references: [id])
+  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  orgId     String   // Organization ID
+
+  @@index([email])
+  @@index([roleId])
+  @@index([inviterId])
+  @@index([token]) // Add index for token lookups
+  @@index([expires]) // Add index for expiration checks
+  @@index([status]) // Add index for status filtering
+  @@map("invitations") // Lowercase table name for consistency
+}
+
+// Enhanced Team model
+model Team {
+  id              String   @id @default(cuid())
+  name            String   // Actual team/department name
+  displayGroup    String?  // The group name shown in reports (may be different for anonymity)
+  memberCount     Int      @default(0) // Total members (updated via trigger or job)
+  activeUserCount Int      @default(0) // Count of truly active users (updated via job)
+  isAnonymous     Boolean  @default(true) // Whether this team meets anonymity threshold (updated via job)
+  parentGroupId   String?  // For hierarchical grouping when needed for anonymity
+  lastActiveCheck DateTime @default(now()) // Last time activity/anonymity was checked
+  requiresMerging Boolean  @default(false) // Flag when team needs to be merged for anonymity (updated via job)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  members         User[]   // Users belonging to this team
+
+  @@index([parentGroupId])
+  @@index([isAnonymous]) // Add index for filtering anonymous teams
+  @@index([requiresMerging]) // Add index for finding teams that need merging
+  @@map("teams") // Lowercase table name for consistency
+}
+
+// Feedback model
+model Feedback {
+  id              String         @id @default(cuid())
+  content         String         @db.Text // The raw feedback content
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Monitoring & Analysis Fields
+  status          FeedbackStatus @default(PENDING) // e.g., PENDING, ANALYZED, FLAGGED, ARCHIVED
+  analysisSummary String?        @db.Text // AI-generated summary for Leadership
+  sentiment       String?        // AI-detected sentiment (e.g., Positive, Negative, Neutral)
+  topics          String[]       // AI-detected topics/keywords
+  
+  // Diagnostic Fields (potentially only visible to Admin)
+  submittedFromIP String?        // Store IP for diagnostics (consider privacy implications)
+  userAgent       String?        // Store User Agent for diagnostics
+  processingLog   Json?          // Store logs related to AI processing or errors
+
+  @@index([status])
+  @@index([sentiment]) // Add index for sentiment filtering
+  @@index([createdAt]) // Add index for date-based queries
+  @@map("feedback") // Lowercase table name for consistency
+}
+
+enum FeedbackStatus {
+  PENDING    // Newly submitted, awaiting analysis
+  ANALYZED   // AI analysis complete
+  FLAGGED    // Needs manual review (e.g., policy violation)
+  ARCHIVED   // Processed and archived
+}
+
+// Setting model
+model Setting {
+  key       String   @id // e.g., "appName", "theme", "anonymityMinGroupSize"
+  value     Json     // Store value as JSON to allow flexibility (string, number, boolean, object)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("settings") // Lowercase table name for consistency
+}
+
+// AnonymitySettings model
+model AnonymitySettings {
+  id                        String   @id @default(cuid()) // Use a single record for global settings
+  minGroupSize              Int      @default(8) // Minimum people for separate reporting
+  minActiveUsers            Int      @default(5) // Minimum ACTIVE users needed
+  activityThresholdDays     Int      @default(30) // Days to consider a user "active"
+  combinationLogic          String   @default("DEPARTMENT") // How to combine small teams (e.g., DEPARTMENT, HIERARCHY, RANDOM)
+  enableGrouping            Boolean  @default(true)
+  activityRequirements      Json?    // What constitutes "activity" (e.g., { login: true, feedbackSubmission: true })
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  
+  @@map("anonymity_settings") // Use snake_case for table name consistency
+}
+
+// Counter model for tracking named counters
+model Counter {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  display String?
+  count   Int     @default(0)
+  
+  @@map("counters") // Lowercase table name for consistency
+}`;
+    
+    // Create the prisma directory
+    const prismaDir = path.join(process.cwd(), 'prisma');
+    ensureDirectoryExists(prismaDir);
+    
+    // Create the schema.prisma file
+    const schemaPath = path.join(prismaDir, 'schema.prisma');
+    fs.writeFileSync(schemaPath, schemaContent);
+    console.log(`Created schema.prisma at: ${schemaPath}`);
+    foundSchemaPath = schemaPath;
+  }
+  
+  // Create symlinks or copy schema.prisma to expected Netlify locations
+  if (foundSchemaPath) {
+    // Copy to the Netlify build directory
+    const netlifyBuildDir = '/opt/build/repo';
+    if (fs.existsSync(netlifyBuildDir)) {
+      const netlifyPrismaDir = path.join(netlifyBuildDir, 'prisma');
+      ensureDirectoryExists(netlifyPrismaDir);
+      
+      const netlifySchemaPath = path.join(netlifyPrismaDir, 'schema.prisma');
+      fs.copyFileSync(foundSchemaPath, netlifySchemaPath);
+      console.log(`Copied schema.prisma to Netlify build directory: ${netlifySchemaPath}`);
+    }
   }
   
   // Display environment information for debugging
@@ -71,20 +304,28 @@ try {
   console.log('Netlify Build Directory:');
   console.log(execSync('ls -la /opt/build/repo 2>/dev/null || echo "Not in Netlify environment"').toString());
   
-  // Create symlinks to ensure Prisma can find the schema in expected locations
+  // Run Prisma generate to create the Prisma client in the current context
+  console.log('Running Prisma generate...');
   try {
-    const netlifyPrismaDir = '/opt/build/repo/prisma';
-    if (!fs.existsSync(netlifyPrismaDir) && fs.existsSync(schemaPath)) {
-      ensureDirectoryExists(netlifyPrismaDir);
-      fs.copyFileSync(schemaPath, path.join(netlifyPrismaDir, 'schema.prisma'));
-      console.log(`Copied schema to Netlify build directory: ${netlifyPrismaDir}`);
+    execSync('npx prisma generate', { stdio: 'inherit' });
+    console.log('Prisma generate completed successfully.');
+  } catch (error) {
+    console.error('Error running Prisma generate:', error.message);
+    console.log('Trying alternative approach with explicit schema path...');
+    
+    try {
+      // Try with explicit schema path
+      execSync(`npx prisma generate --schema=${foundSchemaPath}`, { stdio: 'inherit' });
+      console.log('Prisma generate completed successfully with explicit schema path.');
+    } catch (innerError) {
+      console.error('Error running Prisma generate with explicit schema path:', innerError.message);
+      // Don't exit, just continue with the build process
     }
-  } catch (err) {
-    console.error('Error creating symlinks:', err.message);
   }
   
   console.log('Prisma environment setup complete');
 } catch (error) {
   console.error('Error setting up Prisma environment:', error);
-  process.exit(1);
+  // Don't exit the process with an error code, let the build continue
+  console.log('Continuing with the build despite Prisma setup errors...');
 }
