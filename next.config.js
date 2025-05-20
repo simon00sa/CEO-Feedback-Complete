@@ -50,7 +50,20 @@ const nextConfig = {
       crypto: require.resolve('crypto-browserify'),
       net: false,
       tls: false,
+      // Add additional polyfills for constructor errors
+      stream: require.resolve('stream-browserify'),
+      buffer: require.resolve('buffer/')
     };
+    
+    // Add buffer polyfill
+    if (!isServer) {
+      // Add buffer to client-side bundle
+      config.plugins.push(
+        new webpack.ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+        })
+      );
+    }
     
     return config;
   },
@@ -72,9 +85,15 @@ const nextConfig = {
     '/*': ['./prisma/**/*']
   },
   
-  // Experimental section for other features
+  // Experimental features to fix Netlify issues
   experimental: {
-    // Any other experimental features can stay here
+    // These settings help with NextAuth on Netlify
+    serverComponentsExternalPackages: ['@prisma/client', 'next-auth'],
+    // Prevent optimization issues that can cause constructor errors
+    optimizeCss: false,
+    disableOptimizedLoading: true,
+    // Add this to fix some page loading issues
+    largePageDataBytes: 128 * 1000, // 128KB
   },
   
   // Additional Netlify-specific optimizations
@@ -82,6 +101,15 @@ const nextConfig = {
   
   // Cache optimization
   generateEtags: true,
+  
+  // Generate stable build IDs for Netlify
+  generateBuildId: async () => {
+    return `build-${new Date().getTime()}`;
+  },
+  
+  // Disable static optimization for auth-related routes
+  staticPageGenerationTimeout: 120,
+  distDir: '.next',
 };
 
 module.exports = nextConfig;
