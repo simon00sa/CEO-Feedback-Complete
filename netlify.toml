@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
   # Run the prisma setup script before the build
-  command = "npm run prisma-setup && npm run build"
+  command = "npm run prisma-setup && npm run fix-nextauth && npm run build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -22,11 +22,11 @@
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
   # Enable debug logs
-  DEBUG = "prisma*"
-  # Add Prisma debug logs
-  PRISMA_LOG_QUERIES = "true"
-  # Specify schema path explicitly
-  PRISMA_SCHEMA_PATH = "/opt/build/repo/prisma/schema.prisma"
+  DEBUG = "prisma*,next*,auth*"
+  # Specify runtime settings for NextAuth
+  NEXT_RUNTIME = "nodejs"
+  # Explicitly disable static optimization for auth routes
+  NEXT_DISABLE_STATICPRERENDERS = "true"
 
 # Headers for security and performance
 [[headers]]
@@ -40,6 +40,12 @@
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.supabase.co;"
     # Add security.txt location
     Report-To = '{"group":"default","max_age":31536000,"endpoints":[{"url":"/.netlify/functions/report-csp-violations"}]}'
+
+# Specific cache headers for auth routes - prevent caching
+[[headers]]
+  for = "/api/auth/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
 
 # Cache static assets for better performance
 [[headers]]
@@ -81,8 +87,14 @@
 
 # Redirects for API routes and SPA fallback
 [[redirects]]
+  from = "/api/auth/*"
+  to = "/.netlify/functions/next-api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  to = "/.netlify/functions/next-api/:splat"
   status = 200
 
 # Ensure all routes are handled by Next.js
