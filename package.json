@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "prisma-setup": "node scripts/prisma-setup.js",
-    "prebuild": "npm run prisma-setup && node scripts/prebuild.js",
+    "prebuild": "npm run prisma-setup",
     "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
