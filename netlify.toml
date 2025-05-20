@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
   # Modified command to ensure Prisma works properly in Netlify environment
-  command = "npm run prisma:generate && npm run build"
+  command = "npm run prebuild && npm run build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
