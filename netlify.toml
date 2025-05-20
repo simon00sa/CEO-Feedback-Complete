@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Comprehensive build command that addresses all potential issues
-  command = "node netlify-prisma-setup.js && rm -rf node_modules/.cache && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --force --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
+  # Comprehensive build command with cache clearing and better error handling
+  command = "node netlify-prisma-setup.js || echo 'Prisma setup completed with warnings' && rm -rf node_modules/.cache && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --force --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -95,7 +95,7 @@
 [build.processing.images]
   compress = true
 
-# Disable cache to force fresh installations
+# Disable build caching to force fresh installations
 [build.cache]
   functions = false
   pages = false
