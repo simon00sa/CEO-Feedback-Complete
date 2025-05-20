@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Use environment variables to set the binary platform
-  command = "PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
+  # Use environment variables to set the binary platform and include the setup script
+  command = "node netlify-prisma-setup.js && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -37,6 +37,8 @@
   PRISMA_BINARY_PLATFORM = "debian-openssl-3.0.x"
   # Mirror for downloading Prisma binaries
   PRISMA_ENGINES_MIRROR = "https://binaries.prisma.sh"
+  # Additional Prisma configuration to help with file location
+  PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
 
 # Headers for security and performance
 [[headers]]
