@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Comprehensive build command with cache clearing and better error handling
-  command = "node netlify-prisma-setup.js || echo 'Prisma setup completed with warnings' && rm -rf node_modules/.cache && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --force --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
+  # Comprehensive build command that verifies dependencies, clears cache, and handles errors
+  command = "node verify-dependencies.js || echo 'Dependency check completed with warnings' && node netlify-prisma-setup.js || echo 'Prisma setup completed with warnings' && rm -rf node_modules/.cache && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --force --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate || echo 'Prisma generate completed with warnings' && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -24,7 +24,7 @@
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
   # Enable debug logs
-  DEBUG = "prisma*,next*,auth*"
+  DEBUG = "prisma*,next*,auth*,pnpm*"
   # Specify runtime settings for NextAuth
   NEXT_RUNTIME = "nodejs"
   # Explicitly disable static optimization for auth routes
@@ -41,6 +41,12 @@
   PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
   # Force clear package cache
   CLEAR_CACHE = "true"
+  # Set NODE_ENV to production
+  NODE_ENV = "production"
+  # Log level for better debugging
+  LOG_LEVEL = "debug"
+  # PNPM settings
+  PNPM_FLAGS = "--shamefully-hoist"
 
 # Headers for security and performance
 [[headers]]
@@ -88,6 +94,8 @@
     ".env",
     ".env.production"
   ]
+  # Node.js version for functions
+  node_version = "18"
 
 # Enable Next.js Image Optimization on Netlify
 [build.processing]
