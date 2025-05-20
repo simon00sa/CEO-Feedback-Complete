@@ -36,11 +36,11 @@ pnpm-debug.log*
 *.swo
 .DS_Store
 
-# DO NOT IGNORE these critical files
-# prisma/schema.prisma - Required for Prisma to function
+# DO NOT IGNORE these critical files - explicitly ensure they're included
 !prisma/schema.prisma
-# .env.production - Contains necessary configs for production
 !.env.production
+!netlify-prisma-setup.js
+!pre-download-engines.js
 
 # Ensure Prisma migrations are included
 !prisma/migrations/
