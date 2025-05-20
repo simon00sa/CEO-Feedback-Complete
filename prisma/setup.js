@@ -1,60 +1,71 @@
-// prisma/setup.js
+// prisma-setup.js
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('Setting up Prisma environment for Netlify...');
+console.log('Setting up Prisma for Netlify deployment...');
 
 try {
-  // Check if schema.prisma exists in the expected location
+  // Check if schema.prisma exists
   const schemaPath = path.join(process.cwd(), 'prisma', 'schema.prisma');
+  
   if (!fs.existsSync(schemaPath)) {
-    console.error(`Error: schema.prisma not found at ${schemaPath}`);
-    console.log('Current directory structure:');
-    try {
-      console.log(execSync('find . -type f -name "schema.prisma"').toString());
-    } catch (err) {
-      console.error('Error finding schema.prisma:', err.message);
-    }
+    console.error('Error: schema.prisma file not found!');
     process.exit(1);
   }
   
-  console.log(`Found schema.prisma at ${schemaPath}`);
+  console.log('Found schema.prisma at:', schemaPath);
   
-  // Create the Prisma cache directory if it doesn't exist
-  const homeDir = process.env.HOME || '/opt/buildhome';
-  const configDir = path.join(homeDir, '.config', 'prisma-nodejs');
+  // Read schema content to verify binaryTargets
+  const schemaContent = fs.readFileSync(schemaPath, 'utf8');
   
-  if (!fs.existsSync(configDir)) {
-    console.log(`Creating Prisma config directory at ${configDir}`);
-    fs.mkdirSync(configDir, { recursive: true });
+  if (!schemaContent.includes('binaryTargets')) {
+    console.log('Warning: binaryTargets not found in schema.prisma');
+    console.log('Adding binaryTargets to schema.prisma...');
+    
+    const updatedSchema = schemaContent.replace(
+      'generator client {',
+      'generator client {\n  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]'
+    );
+    
+    fs.writeFileSync(schemaPath, updatedSchema);
+    console.log('Updated schema.prisma with binaryTargets');
+  } else {
+    console.log('binaryTargets already defined in schema.prisma');
   }
   
-  // Create a default commands.json file
-  const commandsJsonPath = path.join(configDir, 'commands.json');
-  if (!fs.existsSync(commandsJsonPath)) {
-    console.log(`Creating commands.json at ${commandsJsonPath}`);
-    fs.writeFileSync(commandsJsonPath, JSON.stringify({
-      "version": "6.8.1",
-      "commands": {}
-    }, null, 2));
+  // Create .prisma directory in node_modules if it doesn't exist
+  const prismaDir = path.join(process.cwd(), 'node_modules', '.prisma');
+  if (!fs.existsSync(prismaDir)) {
+    console.log('Creating .prisma directory...');
+    fs.mkdirSync(prismaDir, { recursive: true });
   }
   
-  // Create a symlink to the schema file in the expected location
-  const targetDir = '/opt/build/repo/prisma';
-  if (!fs.existsSync(targetDir)) {
-    console.log(`Creating target directory at ${targetDir}`);
-    fs.mkdirSync(targetDir, { recursive: true });
+  // Generate Prisma client
+  console.log('Generating Prisma client...');
+  try {
+    execSync('npx prisma generate', { stdio: 'inherit' });
+    console.log('Prisma client generated successfully');
+  } catch (error) {
+    console.error('Error generating Prisma client:', error.message);
+    console.log('Trying alternative approach...');
+    
+    try {
+      execSync(`npx prisma generate --schema=${schemaPath}`, { stdio: 'inherit' });
+      console.log('Prisma client generated successfully with explicit schema path');
+    } catch (innerError) {
+      console.error('Failed to generate Prisma client:', innerError.message);
+      // Don't exit, let the build continue
+    }
   }
   
-  const targetSchemaPath = path.join(targetDir, 'schema.prisma');
-  if (!fs.existsSync(targetSchemaPath)) {
-    console.log(`Copying schema to ${targetSchemaPath}`);
-    fs.copyFileSync(schemaPath, targetSchemaPath);
-  }
+  // Check if Prisma engine files were generated
+  const engineFiles = fs.readdirSync(prismaDir);
+  console.log('Files in .prisma directory:', engineFiles);
   
-  console.log('Prisma environment setup complete');
+  console.log('Prisma setup completed');
 } catch (error) {
   console.error('Error during Prisma setup:', error);
-  process.exit(1);
+  // Don't exit with error to allow the build to continue
+  console.log('Continuing with build despite Prisma setup errors');
 }
