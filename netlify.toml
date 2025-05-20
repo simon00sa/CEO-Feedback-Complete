@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Simplified build command without prisma-fix.js
-  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma:generate && pnpm build"
+  # Use environment variables to set the binary platform
+  command = "PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -29,10 +29,14 @@
   NEXT_RUNTIME = "nodejs"
   # Explicitly disable static optimization for auth routes
   NEXT_DISABLE_STATICPRERENDERS = "true"
-  # Set Prisma binary targets
-  PRISMA_CLI_BINARY_TARGETS = "native,linux-musl-openssl-3.0.x"
+  # Set Prisma binary targets - IMPORTANT: removed "native" to match schema.prisma
+  PRISMA_CLI_BINARY_TARGETS = "debian-openssl-3.0.x,linux-musl-openssl-3.0.x"
   # Force Prisma to use runtime Node.js API
   PRISMA_CLIENT_ENGINE_TYPE = "library"
+  # Specify binary platform directly
+  PRISMA_BINARY_PLATFORM = "debian-openssl-3.0.x"
+  # Mirror for downloading Prisma binaries
+  PRISMA_ENGINES_MIRROR = "https://binaries.prisma.sh"
 
 # Headers for security and performance
 [[headers]]
