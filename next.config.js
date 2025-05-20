@@ -78,31 +78,8 @@ const nextConfig = {
     return config;
   },
   
-  // External packages that should be treated as external dependencies
-  serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
-  
-  // File tracing excludes
-  outputFileTracingExcludes: {
-    '*': [
-      'node_modules/@swc/core-linux-x64-gnu',
-      'node_modules/@swc/core-linux-x64-musl',
-      'node_modules/@esbuild/linux-x64',
-      '.git/**',
-      '**/*.test.*',
-      '**/tests/**',
-      '**/*.d.ts',
-    ],
-  },
-  
-  // Include Prisma files for tracing
-  outputFileTracingIncludes: {
-    '/*': ['./prisma/**/*']
-  },
-  
   // Experimental features to fix Netlify issues
   experimental: {
-    // These settings help with NextAuth on Netlify
-    serverComponentsExternalPackages: ['@prisma/client', 'next-auth'],
     // Prevent optimization issues that can cause constructor errors
     optimizeCss: false,
     // Add this to fix some page loading issues
