@@ -36,7 +36,7 @@ pnpm-debug.log*
 *.swo
 .DS_Store
 
-# DO NOT IGNORE these critical files
+# DO NOT IGNORE these critical files:
 # prisma/schema.prisma - Required for Prisma to function
 # .env.production - Contains necessary configs for production
 
