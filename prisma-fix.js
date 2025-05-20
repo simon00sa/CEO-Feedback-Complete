@@ -1,0 +1,102 @@
+# Netlify configuration file for Next.js application
+[build]
+  # Use pnpm commands and simplify the build process
+  command = "node prisma-fix.js && pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && node prisma-fix.js && pnpm build"
+  # Next.js output directory that Netlify will deploy
+  publish = ".next"
+# Required Next.js plugin for Netlify
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+# Enable Lighthouse performance testing
+[[plugins]]
+  package = "@netlify/plugin-lighthouse"
+# Build environment variables
+[build.environment]
+  # Use Node.js 20 (LTS)
+  NODE_VERSION = "20"
+  # Use PNPM 10
+  PNPM_VERSION = "10.11.0"
+  # Increase memory limit for builds to handle larger applications
+  NODE_OPTIONS = "--max_old_space_size=4096"
+  # Disable Next.js telemetry
+  NEXT_TELEMETRY_DISABLED = "1"
+  # Enable debug logs
+  DEBUG = "prisma*,next*,auth*"
+  # Specify runtime settings for NextAuth
+  NEXT_RUNTIME = "nodejs"
+  # Explicitly disable static optimization for auth routes
+  NEXT_DISABLE_STATICPRERENDERS = "true"
+  # Set Prisma binary targets
+  PRISMA_CLI_BINARY_TARGETS = "native,linux-musl-openssl-3.0.x"
+  # Force Prisma to use runtime Node.js API
+  PRISMA_CLIENT_ENGINE_TYPE = "library"
+  # Skip Prisma postinstall script
+  SKIP_PRISMA_POSTINSTALL = "true"
+# Headers for security and performance
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Security headers
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.supabase.co;"
+    # Add security.txt location
+    Report-To = '{"group":"default","max_age":31536000,"endpoints":[{"url":"/.netlify/functions/report-csp-violations"}]}'
+# Specific cache headers for auth routes - prevent caching
+[[headers]]
+  for = "/api/auth/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+# Cache static assets for better performance
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+# Function settings for serverless
+[functions]
+  # Directory with serverless functions
+  directory = "netlify/functions"
+  # Use esbuild for faster bundling
+  node_bundler = "esbuild"
+  # External node modules that should be included
+  external_node_modules = ["@prisma/client", "@prisma/engines"]
+  # Include all files during bundling - important for Prisma
+  included_files = [
+    "node_modules/.prisma/**/*",
+    "node_modules/@prisma/client/**/*", 
+    "prisma/**/*",
+    ".env",
+    ".env.production"
+  ]
+# Enable Next.js Image Optimization on Netlify
+[build.processing]
+  skip_processing = false
+[build.processing.images]
+  compress = true
+# Enable build caching for faster builds
+[build.cache]
+  functions = true
+  pages = true
+  fallback_error = true
+# Redirects for API routes and SPA fallback
+[[redirects]]
+  from = "/api/auth/*"
+  to = "/.netlify/functions/next-api/:splat"
+  status = 200
+  force = true
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/next-api/:splat"
+  status = 200
+# Ensure all routes are handled by Next.js
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
