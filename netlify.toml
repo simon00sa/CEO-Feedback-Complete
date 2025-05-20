@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Run the prisma setup script before the build
-  command = "npm run prisma-setup && npm run fix-nextauth && npm run build"
+  # Use pnpm commands and simplify the build process
+  command = "pnpm config set enable-pre-post-scripts true && pnpm install --no-frozen-lockfile && pnpm prisma:generate && pnpm build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -15,8 +15,10 @@
 
 # Build environment variables
 [build.environment]
-  # Use Node.js 18 (LTS)
-  NODE_VERSION = "18"
+  # Use Node.js 20 (LTS)
+  NODE_VERSION = "20"
+  # Use PNPM 10
+  PNPM_VERSION = "10.11.0"
   # Increase memory limit for builds to handle larger applications
   NODE_OPTIONS = "--max_old_space_size=4096"
   # Disable Next.js telemetry
@@ -64,6 +66,8 @@
   directory = "netlify/functions"
   # Use esbuild for faster bundling
   node_bundler = "esbuild"
+  # External node modules that should be included
+  external_node_modules = ["@prisma/client", "@prisma/engines"]
   # Include all files during bundling - important for Prisma
   included_files = [
     "node_modules/.prisma/**/*",
