@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Modified command to ensure Prisma works properly in Netlify environment
-  command = "npm run prebuild && npm run build"
+  # Modified command to include both scripts for better debugging
+  command = "node prisma/setup.js && node scripts/prebuild.js && npm run build"
   # Next.js output directory that Netlify will deploy
   publish = ".next"
 
@@ -21,8 +21,8 @@
   NODE_OPTIONS = "--max_old_space_size=4096"
   # Disable Next.js telemetry
   NEXT_TELEMETRY_DISABLED = "1"
-  # Remove specific binary paths as they're causing issues
-  # PRISMA_QUERY_ENGINE_BINARY and PRISMA_SCHEMA_ENGINE_BINARY removed
+  # Add debug flags for Prisma
+  DEBUG = "prisma:*"
 
 # Headers for security and performance
 [[headers]]
