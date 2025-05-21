@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
   # Enhanced build command with path fix
-  command = "mkdir -p /opt/build/repo && ln -sf $(pwd) /opt/build/repo && node ensure-prisma-files.js || echo 'Setup completed with warnings' && pnpm config set enable-pre-post-scripts true && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
+  command = "node fix-netlify-prisma-path.js && cp -f prisma/schema.prisma schema.prisma && node ensure-prisma-files.js || echo 'Setup completed with warnings' && pnpm config set enable-pre-post-scripts true && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/prisma/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -19,7 +19,7 @@
   PRISMA_CLIENT_ENGINE_TYPE = "library"
   PRISMA_BINARY_PLATFORM = "debian-openssl-3.0.x"
   PRISMA_ENGINES_MIRROR = "https://binaries.prisma.sh"
-  PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
+  PRISMA_SCHEMA_PATH = "/opt/build/repo/prisma/schema.prisma"
   NODE_ENV = "production"
   # Add missing module flags
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
