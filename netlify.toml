@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Simplified build command using setup-build.js
-  command = "node setup-build.js && PYTHON_VERSION=3.9.7 USE_IDIOMATIC_VERSION_FILES=true pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
+  # Adding diagnostic script to see what's happening
+  command = "node diagnostic.js && MISE_IDIOMATIC_VERSION_FILES=1 node setup-build.js && MISE_IDIOMATIC_VERSION_FILES=1 PYTHON_VERSION=3.9.7 USE_IDIOMATIC_VERSION_FILES=true pnpm install --no-frozen-lockfile && MISE_IDIOMATIC_VERSION_FILES=1 PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -27,6 +27,8 @@
   NEXT_DEBUG = "true"
   # Explicitly enable idiomatic version files
   USE_IDIOMATIC_VERSION_FILES = "true"
+  # Mise specific environment variable
+  MISE_IDIOMATIC_VERSION_FILES = "1"
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
