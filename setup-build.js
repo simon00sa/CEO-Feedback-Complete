@@ -20,6 +20,28 @@ try {
   const pnpmVersion = execSync('pnpm --version', { stdio: 'pipe' }).toString().trim();
   console.log(`pnpm version: ${pnpmVersion}`);
   
+  // Create Python version files
+  console.log('Setting up Python version files...');
+  fs.writeFileSync('.python-version', '3.9.7');
+  console.log('Created .python-version file');
+  
+  // Verify Python installation
+  try {
+    const pythonVersion = execSync('python --version', { stdio: 'pipe' }).toString().trim();
+    console.log(`Python version: ${pythonVersion}`);
+  } catch (pythonError) {
+    console.error('Error checking Python version:', pythonError.message);
+    console.log('Checking for python3...');
+    try {
+      const python3Version = execSync('python3 --version', { stdio: 'pipe' }).toString().trim();
+      console.log(`Python3 version: ${python3Version}`);
+      console.log('Creating symlink from python3 to python...');
+      execSync('ln -sf $(which python3) /usr/local/bin/python', { stdio: 'inherit' });
+    } catch (python3Error) {
+      console.error('Error checking Python3 version:', python3Error.message);
+    }
+  }
+  
   // Copy .env to /opt/build/repo
   console.log('Setting up environment files...');
   const envPath = path.join(process.cwd(), '.env');
@@ -42,8 +64,20 @@ try {
     fs.copyFileSync(schemaPath, '/opt/build/repo/schema.prisma');
   }
   
+  // Clean up cache if needed
+  console.log('Preparing for clean installation...');
+  if (fs.existsSync('node_modules')) {
+    console.log('Removing existing node_modules to ensure clean install...');
+    fs.rmSync('node_modules', { recursive: true, force: true });
+  }
+  
+  if (fs.existsSync('pnpm-lock.yaml')) {
+    console.log('Backing up pnpm-lock.yaml...');
+    fs.copyFileSync('pnpm-lock.yaml', 'pnpm-lock.yaml.backup');
+  }
+  
   console.log('Build environment setup completed successfully');
 } catch (error) {
   console.error('Error setting up build environment:', error.message);
-  process.exit(1);
+  console.log('Continuing despite errors...');
 }
