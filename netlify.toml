@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
   # Simplified build command using setup-build.js
-  command = "node setup-build.js && pnpm install && pnpm build"
+  command = "node setup-build.js && PYTHON_VERSION=3.9.7 USE_IDIOMATIC_VERSION_FILES=true pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -11,7 +11,7 @@
   NODE_VERSION = "18.20.0"
   PYTHON_VERSION = "3.9.7"
   PNPM_VERSION = "10.11.0"
-  NODE_OPTIONS = "--max_old_space_size=4096 --use-idiomatic-version-files=true"
+  NODE_OPTIONS = "--max_old_space_size=4096"
   NEXT_TELEMETRY_DISABLED = "1"
   DEBUG = "prisma*,next*,auth*,pnpm*"
   NEXT_RUNTIME = "nodejs"
