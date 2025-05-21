@@ -3,11 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('Running Netlify Prisma path fix script...');
+console.log('Running Enhanced Netlify Prisma path fix script...');
 
 try {
   // Display current environment
   console.log('Current working directory:', process.cwd());
+  console.log('Node.js version:', process.version);
+  console.log('PRISMA_BINARY_PLATFORM:', process.env.PRISMA_BINARY_PLATFORM || 'not set');
   console.log('Listing top-level directory contents:');
   console.log(execSync('ls -la').toString());
   
@@ -56,6 +58,19 @@ try {
       console.log('Copying schema.prisma to repo root as fallback...');
       fs.copyFileSync(schemaPath, path.join(process.cwd(), 'schema.prisma'));
       console.log('Schema copied to root directory');
+      
+      // Also copy to /opt/build/repo directly
+      console.log('Copying schema.prisma to /opt/build/repo directly...');
+      fs.copyFileSync(schemaPath, path.join('/opt/build/repo', 'schema.prisma'));
+      console.log('Schema copied to /opt/build/repo directory');
+      
+      // Also copy to /opt/build/repo/prisma
+      const optBuildPrismaDir = path.join('/opt/build/repo', 'prisma');
+      if (!fs.existsSync(optBuildPrismaDir)) {
+        fs.mkdirSync(optBuildPrismaDir, { recursive: true });
+      }
+      fs.copyFileSync(schemaPath, path.join(optBuildPrismaDir, 'schema.prisma'));
+      console.log('Schema copied to /opt/build/repo/prisma directory');
     } else {
       console.error('schema.prisma not found in prisma directory');
     }
@@ -74,12 +89,39 @@ PRISMA_SCHEMA_PATH="${path.join(process.cwd(), 'prisma', 'schema.prisma')}"
 `;
     fs.writeFileSync(envFile, envContent);
     console.log('.env file created');
+    
+    // Copy .env to /opt/build/repo as well
+    fs.copyFileSync(envFile, path.join('/opt/build/repo', '.env'));
+    console.log('.env file copied to /opt/build/repo');
   }
   
   // Create a gitkeep file in /opt/build/repo to ensure the directory exists
   fs.writeFileSync('/opt/build/repo/.gitkeep', '');
   
-  console.log('Netlify Prisma path fix completed');
+  // Try to make prisma client importable from any location
+  console.log('Setting up Prisma client compatibility...');
+  
+  // Ensure node_modules/.prisma exists
+  const prismaBinDir = path.join(process.cwd(), 'node_modules', '.prisma');
+  if (!fs.existsSync(prismaBinDir)) {
+    fs.mkdirSync(prismaBinDir, { recursive: true });
+    console.log('Created .prisma directory in node_modules');
+  }
+  
+  // Check build environment
+  console.log('\nEnvironment diagnostics:');
+  console.log('NETLIFY_BUILD_BASE:', process.env.NETLIFY_BUILD_BASE || 'not set');
+  console.log('NETLIFY_CACHE_DIR:', process.env.NETLIFY_CACHE_DIR || 'not set');
+  console.log('HOME:', process.env.HOME || 'not set');
+  
+  console.log('\nPrisma client installation:');
+  try {
+    console.log(execSync('find /opt/build/repo -name "schema.prisma" 2>/dev/null || echo "No schema.prisma found in /opt/build/repo"').toString());
+  } catch (e) {
+    console.log('Error finding schema.prisma:', e.message);
+  }
+  
+  console.log('Enhanced Netlify Prisma path fix completed');
 } catch (error) {
   console.error('Error in Netlify Prisma path fix:', error.message);
   console.log('Continuing despite error...');
