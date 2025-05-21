@@ -10,7 +10,7 @@
 [build.environment]
   NODE_VERSION = "18.20.0"
   PNPM_VERSION = "10.11.0"
-  NODE_OPTIONS = "--max_old_space_size=4096"
+  NODE_OPTIONS = "--max_old_space_size=4096 --use-idiomatic-version-files=true"
   NEXT_TELEMETRY_DISABLED = "1"
   DEBUG = "prisma*,next*,auth*,pnpm*"
   NEXT_RUNTIME = "nodejs"
@@ -24,6 +24,8 @@
   # Add missing module flags
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   NEXT_DEBUG = "true"
+  # Explicitly enable idiomatic version files
+  USE_IDIOMATIC_VERSION_FILES = "true"
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
@@ -34,7 +36,9 @@
     "prisma/**/*",
     ".env",
     ".env.production",
-    "schema.prisma"
+    "schema.prisma",
+    ".nvmrc",
+    ".node-version"
   ]
 [build.processing]
   skip_processing = false
