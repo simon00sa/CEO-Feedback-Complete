@@ -13,116 +13,128 @@ try {
   console.log('Listing top-level directory contents:');
   console.log(execSync('ls -la').toString());
   
-  // Create symlink if needed - links /opt/build/repo to current directory
-  if (process.cwd() !== '/opt/build/repo') {
-    console.log('Creating symbolic link from /opt/build/repo to current directory...');
-    
-    // Ensure the parent directory exists
-    if (!fs.existsSync('/opt/build')) {
-      console.log('Creating parent directory /opt/build');
-      execSync('mkdir -p /opt/build');
-    }
-    
-    // Check if /opt/build/repo already exists
-    if (fs.existsSync('/opt/build/repo')) {
-      console.log('/opt/build/repo already exists, removing it...');
-      execSync('rm -rf /opt/build/repo');
-    }
-    
-    // Create the symlink
-    execSync(`ln -sf ${process.cwd()} /opt/build/repo`);
-    console.log('Created symlink successfully');
-    
-    // Verify symlink
-    if (fs.existsSync('/opt/build/repo')) {
-      console.log('Symlink verified: /opt/build/repo exists');
-      console.log('Listing symlinked directory contents:');
-      console.log(execSync('ls -la /opt/build/repo').toString());
-    } else {
-      console.error('Failed to create symlink. /opt/build/repo does not exist.');
-    }
-  } else {
-    console.log('Current directory is already /opt/build/repo, no symlink needed');
-  }
+  // Source of truth: the prisma schema in the repository
+  const sourcePrismaSchema = path.join(process.cwd(), 'prisma', 'schema.prisma');
   
-  // Check if prisma directory exists in the repo
-  const prismaDir = path.join(process.cwd(), 'prisma');
-  if (fs.existsSync(prismaDir)) {
-    console.log('Found prisma directory at:', prismaDir);
-    console.log('Prisma directory contents:');
-    console.log(execSync(`ls -la ${prismaDir}`).toString());
+  if (fs.existsSync(sourcePrismaSchema)) {
+    console.log('Found source schema at:', sourcePrismaSchema);
     
-    // Copy schema.prisma to the root as a fallback
-    const schemaPath = path.join(prismaDir, 'schema.prisma');
-    if (fs.existsSync(schemaPath)) {
-      console.log('Copying schema.prisma to repo root as fallback...');
-      fs.copyFileSync(schemaPath, path.join(process.cwd(), 'schema.prisma'));
-      console.log('Schema copied to root directory');
+    // Copy to root directory
+    fs.copyFileSync(sourcePrismaSchema, path.join(process.cwd(), 'schema.prisma'));
+    console.log('Copied schema to root directory');
+    
+    // Create the /opt/build/repo directory if it doesn't exist
+    if (!fs.existsSync('/opt/build/repo')) {
+      fs.mkdirSync('/opt/build/repo', { recursive: true });
+      console.log('Created /opt/build/repo directory');
+    }
+    
+    // Create symlink if needed - links /opt/build/repo to current directory
+    if (process.cwd() !== '/opt/build/repo') {
+      console.log('Creating symbolic link from /opt/build/repo to current directory...');
       
-      // Also copy to /opt/build/repo directly
-      console.log('Copying schema.prisma to /opt/build/repo directly...');
-      fs.copyFileSync(schemaPath, path.join('/opt/build/repo', 'schema.prisma'));
-      console.log('Schema copied to /opt/build/repo directory');
-      
-      // Also copy to /opt/build/repo/prisma
-      const optBuildPrismaDir = path.join('/opt/build/repo', 'prisma');
-      if (!fs.existsSync(optBuildPrismaDir)) {
-        fs.mkdirSync(optBuildPrismaDir, { recursive: true });
+      // Check if /opt/build/repo already exists
+      if (fs.existsSync('/opt/build/repo')) {
+        console.log('/opt/build/repo already exists, removing it...');
+        execSync('rm -rf /opt/build/repo');
       }
-      fs.copyFileSync(schemaPath, path.join(optBuildPrismaDir, 'schema.prisma'));
-      console.log('Schema copied to /opt/build/repo/prisma directory');
+      
+      // Create the symlink
+      execSync(`ln -sf ${process.cwd()} /opt/build/repo`);
+      console.log('Created symlink successfully');
+      
+      // Verify symlink
+      if (fs.existsSync('/opt/build/repo')) {
+        console.log('Symlink verified: /opt/build/repo exists');
+        console.log('Listing symlinked directory contents:');
+        console.log(execSync('ls -la /opt/build/repo').toString());
+      } else {
+        console.error('Failed to create symlink. /opt/build/repo does not exist.');
+      }
     } else {
-      console.error('schema.prisma not found in prisma directory');
+      console.log('Current directory is already /opt/build/repo, no symlink needed');
     }
+    
+    // Copy to /opt/build/repo directly (in case symlink doesn't work)
+    fs.copyFileSync(sourcePrismaSchema, path.join('/opt/build/repo', 'schema.prisma'));
+    console.log('Copied schema to /opt/build/repo directly');
+    
+    // Create prisma directory in /opt/build/repo
+    const optBuildRepoPrismaDir = path.join('/opt/build/repo', 'prisma');
+    if (!fs.existsSync(optBuildRepoPrismaDir)) {
+      fs.mkdirSync(optBuildRepoPrismaDir, { recursive: true });
+    }
+    
+    // Copy to /opt/build/repo/prisma
+    fs.copyFileSync(sourcePrismaSchema, path.join(optBuildRepoPrismaDir, 'schema.prisma'));
+    console.log('Copied schema to /opt/build/repo/prisma');
+    
+    // Verify all locations
+    console.log('\nVerifying schema locations:');
+    console.log('Root schema exists:', fs.existsSync(path.join(process.cwd(), 'schema.prisma')));
+    console.log('/opt/build/repo schema exists:', fs.existsSync(path.join('/opt/build/repo', 'schema.prisma')));
+    console.log('/opt/build/repo/prisma schema exists:', fs.existsSync(path.join('/opt/build/repo/prisma', 'schema.prisma')));
   } else {
-    console.error('prisma directory not found');
+    console.error('Source schema.prisma not found at expected location:', sourcePrismaSchema);
+    console.log('Attempting to find schema in other locations...');
+    
+    // Try to find schema.prisma in any location
+    try {
+      const findResults = execSync('find . -name "schema.prisma" 2>/dev/null').toString().trim();
+      console.log('Found schema.prisma in these locations:\n', findResults);
+      
+      if (findResults) {
+        const foundSchema = findResults.split('\n')[0]; // Use the first found schema
+        console.log('Using schema from:', foundSchema);
+        
+        // Copy to required locations
+        fs.copyFileSync(foundSchema, path.join(process.cwd(), 'schema.prisma'));
+        
+        if (!fs.existsSync('/opt/build/repo')) {
+          fs.mkdirSync('/opt/build/repo', { recursive: true });
+        }
+        fs.copyFileSync(foundSchema, path.join('/opt/build/repo', 'schema.prisma'));
+        
+        const optBuildRepoPrismaDir = path.join('/opt/build/repo', 'prisma');
+        if (!fs.existsSync(optBuildRepoPrismaDir)) {
+          fs.mkdirSync(optBuildRepoPrismaDir, { recursive: true });
+        }
+        fs.copyFileSync(foundSchema, path.join(optBuildRepoPrismaDir, 'schema.prisma'));
+        
+        console.log('Copied schema to all required locations');
+      } else {
+        console.error('No schema.prisma found in the repository');
+      }
+    } catch (findError) {
+      console.error('Error searching for schema.prisma:', findError.message);
+    }
   }
   
-  // Create .env file to ensure DATABASE_URL is available
-  const envFile = path.join(process.cwd(), '.env');
-  if (!fs.existsSync(envFile) && process.env.DATABASE_URL) {
-    console.log('Creating .env file with required environment variables...');
-    const envContent = `
-DATABASE_URL="${process.env.DATABASE_URL}"
-${process.env.DIRECT_URL ? `DIRECT_URL="${process.env.DIRECT_URL}"` : ''}
-PRISMA_SCHEMA_PATH="${path.join(process.cwd(), 'prisma', 'schema.prisma')}"
-`;
-    fs.writeFileSync(envFile, envContent);
-    console.log('.env file created');
+  // Create .env files in required locations with DATABASE_URL
+  if (process.env.DATABASE_URL) {
+    console.log('\nCreating .env files with DATABASE_URL...');
     
-    // Copy .env to /opt/build/repo as well
-    fs.copyFileSync(envFile, path.join('/opt/build/repo', '.env'));
-    console.log('.env file copied to /opt/build/repo');
+    const envContent = `DATABASE_URL="${process.env.DATABASE_URL}"
+${process.env.DIRECT_URL ? `DIRECT_URL="${process.env.DIRECT_URL}"` : ''}
+PRISMA_SCHEMA_PATH="/opt/build/repo/schema.prisma"
+`;
+    
+    // Root directory .env
+    fs.writeFileSync(path.join(process.cwd(), '.env'), envContent);
+    console.log('Created .env in root directory');
+    
+    // /opt/build/repo .env
+    fs.writeFileSync(path.join('/opt/build/repo', '.env'), envContent);
+    console.log('Created .env in /opt/build/repo');
+  } else {
+    console.warn('DATABASE_URL environment variable not set');
   }
   
   // Create a gitkeep file in /opt/build/repo to ensure the directory exists
   fs.writeFileSync('/opt/build/repo/.gitkeep', '');
   
-  // Try to make prisma client importable from any location
-  console.log('Setting up Prisma client compatibility...');
-  
-  // Ensure node_modules/.prisma exists
-  const prismaBinDir = path.join(process.cwd(), 'node_modules', '.prisma');
-  if (!fs.existsSync(prismaBinDir)) {
-    fs.mkdirSync(prismaBinDir, { recursive: true });
-    console.log('Created .prisma directory in node_modules');
-  }
-  
-  // Check build environment
-  console.log('\nEnvironment diagnostics:');
-  console.log('NETLIFY_BUILD_BASE:', process.env.NETLIFY_BUILD_BASE || 'not set');
-  console.log('NETLIFY_CACHE_DIR:', process.env.NETLIFY_CACHE_DIR || 'not set');
-  console.log('HOME:', process.env.HOME || 'not set');
-  
-  console.log('\nPrisma client installation:');
-  try {
-    console.log(execSync('find /opt/build/repo -name "schema.prisma" 2>/dev/null || echo "No schema.prisma found in /opt/build/repo"').toString());
-  } catch (e) {
-    console.log('Error finding schema.prisma:', e.message);
-  }
-  
-  console.log('Enhanced Netlify Prisma path fix completed');
+  console.log('Schema location and path fix completed');
 } catch (error) {
-  console.error('Error in Netlify Prisma path fix:', error.message);
+  console.error('Error in schema location fix:', error.message);
   console.log('Continuing despite error...');
 }
