@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Enhanced build command with explicit npm installation of pnpm first
-  command = "npm install -g pnpm@10.11.0 && node fix-netlify-prisma-path.js && cp .env /opt/build/repo/.env && pnpm config set enable-pre-post-scripts true && pnpm install react-hook-form@^7.55.0 --no-frozen-lockfile && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
+  # Robust build command with pnpm installation check
+  command = "node ensure-pnpm.js && node fix-netlify-prisma-path.js && cp .env /opt/build/repo/.env && pnpm config set enable-pre-post-scripts true && pnpm install react-hook-form@^7.55.0 --no-frozen-lockfile && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -10,7 +10,7 @@
 [build.environment]
   NODE_VERSION = "18.20.0"
   PNPM_VERSION = "10.11.0"
-  NODE_OPTIONS = "--max_old_space_size=4096 --use-idiomatic-version-files=true"
+  NODE_OPTIONS = "--max_old_space_size=4096"
   NEXT_TELEMETRY_DISABLED = "1"
   DEBUG = "prisma*,next*,auth*,pnpm*"
   NEXT_RUNTIME = "nodejs"
@@ -24,6 +24,8 @@
   # Add missing module flags
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   NEXT_DEBUG = "true"
+  # Explicitly set path to include global npm bin
+  PATH = "/opt/build/node_modules/.bin:/usr/local/bin:/usr/bin:/bin"
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
