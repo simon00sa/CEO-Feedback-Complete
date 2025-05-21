@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Enhanced build command with comprehensive environment setup
-  command = "node verify-environment.js && npm install -g pnpm@10.11.0 && node fix-netlify-prisma-path.js && cp .env /opt/build/repo/.env && pnpm config set enable-pre-post-scripts true && pnpm install react-hook-form@^7.55.0 --no-frozen-lockfile && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
+  # Enhanced build command with path fix, env file handling, and react-hook-form update
+  command = "python --version && node fix-netlify-prisma-path.js && cp .env /opt/build/repo/.env && pnpm config set enable-pre-post-scripts true && pnpm install react-hook-form@^7.55.0 --no-frozen-lockfile && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -9,8 +9,9 @@
   package = "@netlify/plugin-lighthouse"
 [build.environment]
   NODE_VERSION = "18.20.0"
+  PYTHON_VERSION = "3.9.7"
   PNPM_VERSION = "10.11.0"
-  NODE_OPTIONS = "--max_old_space_size=4096"
+  NODE_OPTIONS = "--max_old_space_size=4096 --use-idiomatic-version-files=true"
   NEXT_TELEMETRY_DISABLED = "1"
   DEBUG = "prisma*,next*,auth*,pnpm*"
   NEXT_RUNTIME = "nodejs"
@@ -24,12 +25,8 @@
   # Add missing module flags
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   NEXT_DEBUG = "true"
-  # Set Python version
-  PYTHON_VERSION = "3.9.7"
   # Explicitly enable idiomatic version files
   USE_IDIOMATIC_VERSION_FILES = "true"
-  # Explicitly set path to include global npm bin
-  PATH = "/opt/build/node_modules/.bin:/usr/local/bin:/usr/bin:/bin"
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
@@ -41,7 +38,6 @@
     ".env",
     ".env.production",
     "schema.prisma",
-    ".nvmrc",
     ".python-version"
   ]
 [build.processing]
