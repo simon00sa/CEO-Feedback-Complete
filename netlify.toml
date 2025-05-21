@@ -1,15 +1,12 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Enhanced build command to verify files and modules
-  command = "node ensure-prisma-files.js || echo 'Setup completed with warnings' && pnpm config set enable-pre-post-scripts true && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
+  # Enhanced build command with path fix
+  command = "mkdir -p /opt/build/repo && ln -sf $(pwd) /opt/build/repo && node ensure-prisma-files.js || echo 'Setup completed with warnings' && pnpm config set enable-pre-post-scripts true && pnpm install --shamefully-hoist --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma:generate && pnpm build"
   publish = ".next"
-
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
 [[plugins]]
   package = "@netlify/plugin-lighthouse"
-
 [build.environment]
   NODE_VERSION = "18.20.0"
   PNPM_VERSION = "10.11.0"
@@ -27,7 +24,6 @@
   # Add missing module flags
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   NEXT_DEBUG = "true"
-
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
@@ -37,20 +33,17 @@
     "node_modules/@prisma/client/**/*", 
     "prisma/**/*",
     ".env",
-    ".env.production"
+    ".env.production",
+    "schema.prisma"
   ]
-
 [build.processing]
   skip_processing = false
-
 [build.processing.images]
   compress = true
-
 [build.cache]
   functions = false
   pages = false
   fallback_error = true
-
 [[headers]]
   for = "/*"
   [headers.values]
@@ -60,33 +53,27 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.supabase.co;"
     Report-To = "{\"group\":\"default\",\"max_age\":31536000,\"endpoints\":[{\"url\":\"/.netlify/functions/report-csp-violations\"}]}"
-
 [[headers]]
   for = "/api/auth/*"
   [headers.values]
     Cache-Control = "no-store, max-age=0, must-revalidate"
-
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
-
 [[headers]]
   for = "/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
-
 [[redirects]]
   from = "/api/auth/*"
   to = "/.netlify/functions/next-api/:splat"
   status = 200
   force = true
-
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/next-api/:splat"
   status = 200
-
 [[redirects]]
   from = "/*"
   to = "/index.html"
