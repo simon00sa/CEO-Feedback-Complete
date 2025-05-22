@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Completely simplified build command with no Python management
-  command = "echo 'Starting build process...' && echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && node netlify-build-fix.js && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
+  # Enhanced build command with comprehensive Prisma setup
+  command = "echo 'Starting enhanced build process...' && echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && node netlify-build-fix.js && pnpm install --no-frozen-lockfile && echo 'Generating Prisma client...' && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma generate && echo 'Building Next.js application...' && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -40,7 +40,10 @@
   included_files = [
     "node_modules/.prisma/**/*",
     "node_modules/@prisma/client/**/*", 
+    "node_modules/.pnpm/**/*",
     "prisma/**/*",
+    "prisma/schema.prisma",
+    "schema.prisma",
     ".env",
     ".env.production",
     ".npmrc"
