@@ -48,6 +48,10 @@ function fixGitReferences() {
   console.log('Checking and fixing Git references...');
 
   try {
+    // Get current branch name from environment or default to main
+    const currentBranch = process.env.BRANCH || process.env.HEAD || 'main';
+    console.log(`Current branch: ${currentBranch}`);
+    
     // Check if .git directory exists
     const gitDir = path.join(process.cwd(), '.git');
     if (fs.existsSync(gitDir)) {
@@ -62,12 +66,15 @@ function fixGitReferences() {
         // Fix the reference format by ensuring it starts with 'ref:'
         if (!headContent.startsWith('ref:')) {
           console.log('Fixing HEAD reference format...');
-          fs.writeFileSync(headFile, 'ref: refs/heads/main\n');
-          console.log('HEAD reference fixed');
+          const fixedHead = `ref: refs/heads/${currentBranch}`;
+          fs.writeFileSync(headFile, fixedHead + '\n');
+          console.log(`HEAD reference fixed: ${fixedHead}`);
         }
       } else {
         console.log('HEAD file does not exist, creating it...');
-        fs.writeFileSync(headFile, 'ref: refs/heads/main\n');
+        const newHead = `ref: refs/heads/${currentBranch}`;
+        fs.writeFileSync(headFile, newHead + '\n');
+        console.log(`Created HEAD file: ${newHead}`);
       }
       
       // Ensure refs/heads directory exists
@@ -77,30 +84,38 @@ function fixGitReferences() {
         fs.mkdirSync(refsDir, { recursive: true });
       }
       
-      // Create main branch reference if it doesn't exist
-      const mainRef = path.join(refsDir, 'main');
-      if (!fs.existsSync(mainRef)) {
-        console.log('Creating main branch reference...');
-        const commitRef = process.env.COMMIT_REF || 'HEAD';
-        fs.writeFileSync(mainRef, commitRef + '\n');
+      // Create branch reference if it doesn't exist
+      const branchRef = path.join(refsDir, currentBranch);
+      if (!fs.existsSync(branchRef)) {
+        console.log(`Creating ${currentBranch} branch reference...`);
+        // Use COMMIT_REF if available, otherwise use a placeholder
+        const commitRef = process.env.COMMIT_REF || process.env.NETLIFY_COMMIT_REF || '0000000000000000000000000000000000000000';
+        fs.writeFileSync(branchRef, commitRef + '\n');
+        console.log(`Created branch reference: ${currentBranch} -> ${commitRef}`);
       }
     } else {
       console.log('.git directory does not exist, creating minimal structure...');
       
       // Create minimal .git structure
-      fs.mkdirSync(gitDir);
-      fs.writeFileSync(path.join(gitDir, 'HEAD'), 'ref: refs/heads/main\n');
+      fs.mkdirSync(gitDir, { recursive: true });
+      
+      const headContent = `ref: refs/heads/${currentBranch}`;
+      fs.writeFileSync(path.join(gitDir, 'HEAD'), headContent + '\n');
+      console.log(`Created minimal .git structure with HEAD: ${headContent}`);
       
       const refsHeadsDir = path.join(gitDir, 'refs', 'heads');
       fs.mkdirSync(refsHeadsDir, { recursive: true });
       
-      fs.writeFileSync(path.join(refsHeadsDir, 'main'), 'HEAD\n');
+      const commitRef = process.env.COMMIT_REF || process.env.NETLIFY_COMMIT_REF || '0000000000000000000000000000000000000000';
+      fs.writeFileSync(path.join(refsHeadsDir, currentBranch), commitRef + '\n');
+      console.log(`Created branch reference: ${currentBranch} -> ${commitRef}`);
     }
     
     console.log('Git reference fixes completed successfully');
   } catch (error) {
-    console.error('Error fixing Git references:', error);
+    console.error('Error fixing Git references:', error.message);
     // Continue with the build despite errors
+    console.log('Continuing despite Git reference errors...');
   }
 }
 
@@ -149,10 +164,11 @@ function setupPrismaEnvironment() {
     const commandsJsonPath = path.join(configDir, 'commands.json');
     if (!fs.existsSync(commandsJsonPath)) {
       console.log(`Creating commands.json at: ${commandsJsonPath}`);
-      fs.writeFileSync(commandsJsonPath, JSON.stringify({
+      const commandsConfig = {
         "version": "6.8.1",
         "commands": {}
-      }));
+      };
+      fs.writeFileSync(commandsJsonPath, JSON.stringify(commandsConfig, null, 2));
     }
     
     // Verify if prisma directory exists
@@ -186,9 +202,12 @@ function setupPrismaEnvironment() {
         envContent += 'PRISMA_ENGINES_MIRROR="https://binaries.prisma.sh"\n';
         
         fs.writeFileSync(envPath, envContent);
+        console.log('.env file created successfully');
       } else {
         console.warn('Warning: DATABASE_URL environment variable not found. Cannot create .env file.');
       }
+    } else {
+      console.log('.env file already exists');
     }
     
     // Create engines_manifest.json if needed
@@ -198,15 +217,18 @@ function setupPrismaEnvironment() {
       fs.mkdirSync(enginesDir, { recursive: true });
       
       const manifestPath = path.join(enginesDir, 'engines_manifest.json');
-      fs.writeFileSync(manifestPath, JSON.stringify({
+      const manifestConfig = {
         "version": "6.8.1"
-      }));
+      };
+      fs.writeFileSync(manifestPath, JSON.stringify(manifestConfig, null, 2));
+      console.log('Created engines_manifest.json');
     }
     
     console.log('Prisma environment setup completed');
   } catch (error) {
-    console.error('Error setting up Prisma environment:', error);
+    console.error('Error setting up Prisma environment:', error.message);
     // Continue with the build despite errors
+    console.log('Continuing despite Prisma setup errors...');
   }
 }
 
@@ -224,7 +246,7 @@ async function main() {
     // Step 2: Setup Python
     setupPython();
     
-    // Step 3: Fix Git references
+    // Step 3: Fix Git references (FIXED VERSION)
     fixGitReferences();
     
     // Step 4: Set up Prisma environment
@@ -232,10 +254,12 @@ async function main() {
     
     // Step 5: Display environment information
     console.log('\n===== ENVIRONMENT INFORMATION =====');
-    console.log('- NODE_ENV:', process.env.NODE_ENV);
+    console.log('- NODE_ENV:', process.env.NODE_ENV || 'not set');
     console.log('- NODE_VERSION:', process.version);
     console.log('- PWD:', process.cwd());
     console.log('- HOME:', process.env.HOME || '/opt/buildhome');
+    console.log('- BRANCH:', process.env.BRANCH || process.env.HEAD || 'main');
+    console.log('- COMMIT_REF:', process.env.COMMIT_REF || process.env.NETLIFY_COMMIT_REF || 'not set');
     console.log('- MISE_IDIOMATIC_VERSION_FILES:', process.env.MISE_IDIOMATIC_VERSION_FILES);
     
     // Step 6: Verify environment variables
@@ -258,7 +282,8 @@ async function main() {
       '.env',
       'package.json',
       'prisma/schema.prisma',
-      '.python-version'
+      '.python-version',
+      '.npmrc'
     ];
     
     importantFiles.forEach(file => {
@@ -268,7 +293,7 @@ async function main() {
     
     console.log('\n===== BUILD ENVIRONMENT SETUP COMPLETED =====');
   } catch (error) {
-    console.error('Error in Netlify build environment fix script:', error);
+    console.error('Error in Netlify build environment fix script:', error.message);
     // Don't exit with error to allow the build to continue
     console.log('Continuing with the build despite errors...');
   }
