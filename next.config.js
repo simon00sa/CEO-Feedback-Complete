@@ -30,6 +30,13 @@ const nextConfig = {
   
   // Fix webpack conflicts with LRU cache and other Node.js modules
   webpack: (config, { webpack, isServer }) => {
+    // Reduce debug output to suppress jsconfig-paths-plugin warnings
+    config.stats = {
+      ...config.stats,
+      logging: 'warn',
+      moduleTrace: false,
+    };
+    
     if (isServer) {
       // Force lru-cache to resolve to a new version that works with webpack 5
       config.resolve.alias = {
@@ -37,6 +44,16 @@ const nextConfig = {
         'lru-cache': require.resolve('lru-cache'),
       };
     }
+    
+    // Fix path resolution issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': './src',
+      '@/components': './src/components',
+      '@/lib': './src/lib',
+      '@/app': './src/app',
+      '@/types': './src/types',
+    };
     
     // Avoid issues with problematic packages
     config.externals = [...(config.externals || []), 'canvas', 'jsdom'];
@@ -98,6 +115,13 @@ const nextConfig = {
   // Disable static optimization for auth-related routes
   staticPageGenerationTimeout: 120,
   distDir: '.next',
+  
+  // Suppress debug logging
+  logging: {
+    fetches: {
+      fullUrl: false,
+    },
+  },
 };
 
 module.exports = nextConfig;
