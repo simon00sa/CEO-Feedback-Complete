@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Adding diagnostic script to see what's happening
-  command = "node diagnostic.js && MISE_IDIOMATIC_VERSION_FILES=1 node setup-build.js && MISE_IDIOMATIC_VERSION_FILES=1 PYTHON_VERSION=3.9.7 USE_IDIOMATIC_VERSION_FILES=true pnpm install --no-frozen-lockfile && MISE_IDIOMATIC_VERSION_FILES=1 PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=/opt/build/repo/schema.prisma pnpm prisma:generate && pnpm build"
+  # Simplified build command using the netlify-build-fix.js
+  command = "node netlify-build-fix.js && npm install -g pnpm@10.11.0 && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -20,14 +20,11 @@
   PRISMA_CLIENT_ENGINE_TYPE = "library"
   PRISMA_BINARY_PLATFORM = "debian-openssl-3.0.x"
   PRISMA_ENGINES_MIRROR = "https://binaries.prisma.sh"
-  PRISMA_SCHEMA_PATH = "/opt/build/repo/schema.prisma"
+  PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
   NODE_ENV = "production"
-  # Add missing module flags
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   NEXT_DEBUG = "true"
-  # Explicitly enable idiomatic version files
   USE_IDIOMATIC_VERSION_FILES = "true"
-  # Mise specific environment variable
   MISE_IDIOMATIC_VERSION_FILES = "1"
 [functions]
   directory = "netlify/functions"
@@ -39,7 +36,6 @@
     "prisma/**/*",
     ".env",
     ".env.production",
-    "schema.prisma",
     ".python-version"
   ]
 [build.processing]
