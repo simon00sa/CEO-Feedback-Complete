@@ -3,9 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('Running Minimal Netlify build environment fix script...');
+console.log('Running Enhanced Netlify build environment fix script...');
 
-// Install and verify pnpm only
+// Install and verify pnpm
 function setupPnpm() {
   console.log('Setting up pnpm...');
   
@@ -34,27 +34,52 @@ function setupPnpm() {
   }
 }
 
-// Ensure Prisma environment is properly set up
+// Comprehensive Prisma environment setup
 function setupPrismaEnvironment() {
-  console.log('Setting up Prisma environment...');
+  console.log('Setting up comprehensive Prisma environment...');
   
   try {
-    // Verify if prisma directory exists
+    // 1. Ensure prisma directory exists
     const prismaDir = path.join(process.cwd(), 'prisma');
     if (!fs.existsSync(prismaDir)) {
       console.log('Creating prisma directory...');
       fs.mkdirSync(prismaDir, { recursive: true });
     }
     
-    // Verify schema.prisma exists and is accessible
+    // 2. Verify schema.prisma exists
     const schemaPath = path.join(prismaDir, 'schema.prisma');
     if (!fs.existsSync(schemaPath)) {
-      console.error('Schema file not found at expected location:', schemaPath);
+      console.error('CRITICAL: Schema file not found at expected location:', schemaPath);
+      
+      // Try to find schema.prisma in other locations
+      console.log('Searching for schema.prisma in alternative locations...');
+      const possibleLocations = [
+        path.join(process.cwd(), 'schema.prisma'),
+        path.join(process.cwd(), 'src', 'prisma', 'schema.prisma'),
+        path.join(process.cwd(), 'database', 'schema.prisma')
+      ];
+      
+      let schemaFound = false;
+      for (const location of possibleLocations) {
+        if (fs.existsSync(location)) {
+          console.log(`Found schema.prisma at: ${location}`);
+          fs.copyFileSync(location, schemaPath);
+          console.log(`Copied schema.prisma to: ${schemaPath}`);
+          schemaFound = true;
+          break;
+        }
+      }
+      
+      if (!schemaFound) {
+        console.error('ERROR: Could not find schema.prisma file anywhere!');
+        console.log('Please ensure schema.prisma exists in your repository');
+        return false;
+      }
     } else {
-      console.log('Schema file found at:', schemaPath);
+      console.log('✓ Schema file found at:', schemaPath);
     }
     
-    // Create .env file with DATABASE_URL if it doesn't exist
+    // 3. Create .env file with DATABASE_URL if it doesn't exist
     const envPath = path.join(process.cwd(), '.env');
     if (!fs.existsSync(envPath)) {
       if (process.env.DATABASE_URL) {
@@ -69,54 +94,32 @@ function setupPrismaEnvironment() {
         envContent += 'PRISMA_ENGINES_MIRROR="https://binaries.prisma.sh"\n';
         
         fs.writeFileSync(envPath, envContent);
-        console.log('.env file created successfully');
+        console.log('✓ .env file created successfully');
       } else {
-        console.warn('Warning: DATABASE_URL environment variable not found');
+        console.warn('WARNING: DATABASE_URL environment variable not found');
+        console.log('Creating minimal .env file...');
+        const envContent = 'PRISMA_BINARY_PLATFORM="debian-openssl-3.0.x"\nPRISMA_ENGINES_MIRROR="https://binaries.prisma.sh"\n';
+        fs.writeFileSync(envPath, envContent);
       }
     } else {
-      console.log('.env file already exists');
+      console.log('✓ .env file already exists');
     }
     
-    console.log('Prisma environment setup completed');
-  } catch (error) {
-    console.error('Error setting up Prisma environment:', error.message);
-    console.log('Continuing despite Prisma setup errors...');
-  }
-}
-
-// Main function
-async function main() {
-  try {
-    console.log('\n===== MINIMAL NETLIFY BUILD ENVIRONMENT SETUP =====');
-    
-    // Step 1: Setup pnpm only
-    const pnpmSuccess = setupPnpm();
-    if (!pnpmSuccess) {
-      console.warn('pnpm setup failed, build may fail later');
+    // 4. Ensure Prisma directories exist
+    const nodeModulesPrismaDir = path.join(process.cwd(), 'node_modules', '.prisma');
+    if (!fs.existsSync(nodeModulesPrismaDir)) {
+      console.log('Creating node_modules/.prisma directory...');
+      fs.mkdirSync(nodeModulesPrismaDir, { recursive: true });
     }
     
-    // Step 2: Set up Prisma environment
-    setupPrismaEnvironment();
+    const prismaClientDir = path.join(process.cwd(), 'node_modules', '@prisma', 'client');
+    if (!fs.existsSync(prismaClientDir)) {
+      console.log('Creating @prisma/client directory...');
+      fs.mkdirSync(prismaClientDir, { recursive: true });
+    }
     
-    // Step 3: Verify file structure
-    console.log('\n===== VERIFYING FILE STRUCTURE =====');
-    const importantFiles = [
-      'package.json',
-      'prisma/schema.prisma',
-      '.npmrc'
-    ];
-    
-    importantFiles.forEach(file => {
-      const exists = fs.existsSync(path.join(process.cwd(), file));
-      console.log(`${file}: ${exists ? '✓ EXISTS' : '✗ MISSING'}`);
-    });
-    
-    console.log('\n===== MINIMAL BUILD ENVIRONMENT SETUP COMPLETED =====');
-  } catch (error) {
-    console.error('Error in Minimal Netlify build environment fix script:', error.message);
-    console.log('Continuing with the build despite errors...');
-  }
-}
-
-// Run the main function
-main();
+    // 5. Create schema copy in root for build process
+    const rootSchemaPath = path.join(process.cwd(), 'schema.prisma');
+    if (fs.existsSync(schemaPath)) {
+      fs.copyFileSync(schemaPath, rootSchemaPath);
+      console.log('✓ Created schema.pris
