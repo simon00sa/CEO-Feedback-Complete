@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Simplified build command using the netlify-build-fix.js
-  command = "node netlify-build-fix.js && npm install -g pnpm@10.11.0 && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && pnpm build"
+  # Simplified build command using consolidated netlify-build-fix.js
+  command = "node netlify-build-fix.js && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
