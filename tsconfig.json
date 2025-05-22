@@ -1,14 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "types": [
-      "@cloudflare/workers-types/2023-07-01"
-    ],
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -27,31 +20,18 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/components/*": ["./src/components/*"],
-      "@/lib/*": ["./src/lib/*"],
-      "@/app/*": ["./src/app/*"],
-      "@/types/*": ["./src/types/*"],
-      "@/utils/*": ["./src/utils/*"]
+      "@/*": ["./src/*"]
     },
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "strictNullChecks": false,
-    "strictBindCallApply": false,
-    "strictPropertyInitialization": false,
-    "noImplicitReturns": false,
-    "noFallthroughCasesInSwitch": false,
     "allowUnusedLabels": true,
     "allowUnreachableCode": true
   },
   "include": [
     "next-env.d.ts",
-    "env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "next.config.js",
-    "src/types/next-auth.d.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
