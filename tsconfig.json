@@ -31,7 +31,8 @@
       "@/components/*": ["./src/components/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/app/*": ["./src/app/*"],
-      "@/types/*": ["./src/types/*"]
+      "@/types/*": ["./src/types/*"],
+      "@/utils/*": ["./src/utils/*"]
     },
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -53,6 +54,8 @@
     "src/types/next-auth.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "dist"
   ]
 }
