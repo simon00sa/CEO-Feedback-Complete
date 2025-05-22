@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   // Ensure compatibility with Netlify's Next.js plugin
   output: 'standalone',
@@ -29,14 +31,26 @@ const nextConfig = {
   },
   
   // Fix webpack conflicts with LRU cache and other Node.js modules
-  webpack: (config, { webpack, isServer }) => {
-    // Reduce debug output to suppress jsconfig-paths-plugin warnings
-    config.stats = {
-      ...config.stats,
-      logging: 'warn',
-      moduleTrace: false,
-      warnings: false,
-    };
+  webpack: (config, { webpack, isServer, dev }) => {
+    // Suppress debug logs and warnings in production
+    if (!dev) {
+      config.infrastructureLogging = {
+        level: 'warn',
+        debug: false,
+      };
+      
+      config.stats = {
+        ...config.stats,
+        logging: 'warn',
+        moduleTrace: false,
+        warnings: false,
+        warningsFilter: [
+          /next:jsconfig-paths-plugin/,
+          /next-metadata-image-loader/,
+          /moduleName did not match any paths pattern/,
+        ],
+      };
+    }
     
     // Fix lru-cache module parsing issue
     config.module.rules.push({
@@ -59,28 +73,19 @@ const nextConfig = {
       },
     });
     
-    if (isServer) {
-      // Force lru-cache to resolve to a specific version
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'lru-cache': require.resolve('lru-cache'),
-      };
-    } else {
-      // Client-side alias for lru-cache
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'lru-cache': require.resolve('lru-cache'),
-      };
-    }
-    
-    // Fix path resolution issues
+    // Fix module resolution for Next.js loaders
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': './src',
-      '@/components': './src/components',
-      '@/lib': './src/lib',
-      '@/app': './src/app',
-      '@/types': './src/types',
+      'lru-cache': require.resolve('lru-cache'),
+      '@': path.resolve(__dirname, './src'),
+      '@/components': path.resolve(__dirname, './src/components'),
+      '@/lib': path.resolve(__dirname, './src/lib'),
+      '@/app': path.resolve(__dirname, './src/app'),
+      '@/types': path.resolve(__dirname, './src/types'),
+      // Fix Next.js loader paths
+      'next-metadata-image-loader': path.resolve(__dirname, 'node_modules/next/dist/build/webpack/loaders/next-metadata-image-loader'),
+      'next-app-loader': path.resolve(__dirname, 'node_modules/next/dist/build/webpack/loaders/next-app-loader'),
+      'next-route-loader': path.resolve(__dirname, 'node_modules/next/dist/build/webpack/loaders/next-route-loader'),
     };
     
     // Avoid issues with problematic packages
@@ -116,6 +121,14 @@ const nextConfig = {
       );
     }
     
+    // Suppress specific warnings
+    config.ignoreWarnings = [
+      /next:jsconfig-paths-plugin/,
+      /next-metadata-image-loader/,
+      /moduleName did not match any paths pattern/,
+      { module: /node_modules/ },
+    ];
+    
     return config;
   },
   
@@ -123,7 +136,7 @@ const nextConfig = {
   experimental: {
     optimizeCss: false,
     largePageDataBytes: 128 * 1000,
-    esmExternals: true, // Better handling of ES modules
+    esmExternals: true,
   },
   
   // Additional Netlify-specific optimizations
