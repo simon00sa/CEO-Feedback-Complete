@@ -3,94 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('Running Enhanced Netlify build environment fix script...');
-
-// Set environment variables to suppress warnings
-process.env.MISE_IDIOMATIC_VERSION_FILES = "1";
-process.env.USE_IDIOMATIC_VERSION_FILES = "true";
-process.env.MISE_LOG_LEVEL = "error";
-process.env.MISE_QUIET = "1";
-process.env.MISE_EXPERIMENTAL = "1";
-process.env.MISE_TIMEOUT = "600";
-
-// Enhanced Python setup with stable version
-function setupPython() {
-  console.log('Setting up Python environment with stable version...');
-  
-  try {
-    // Force Python version to stable 3.11.9
-    const stablePythonVersion = '3.11.9';
-    
-    // Create .python-version file with stable version
-    fs.writeFileSync('.python-version', stablePythonVersion);
-    console.log(`Created .python-version file with version: ${stablePythonVersion}`);
-    
-    // Create runtime.txt file for Netlify
-    fs.writeFileSync('runtime.txt', `python-${stablePythonVersion}`);
-    console.log(`Created runtime.txt file with version: python-${stablePythonVersion}`);
-    
-    // Try to set Python version using mise with timeout
-    try {
-      console.log('Attempting to set Python version using mise...');
-      
-      // Set a shorter timeout for mise operations
-      execSync(`timeout 30 mise use python@${stablePythonVersion} --global`, { 
-        stdio: 'pipe',
-        timeout: 30000 
-      });
-      console.log(`Successfully set Python version to ${stablePythonVersion}`);
-    } catch (miseError) {
-      console.log('Note: mise Python setup skipped (this is normal if mise is not available or times out)');
-      console.log('Continuing with system Python...');
-    }
-    
-    // Check what Python version is actually available
-    try {
-      const pythonVersion = execSync('python --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
-      console.log(`System Python version: ${pythonVersion}`);
-    } catch (pythonError) {
-      try {
-        const python3Version = execSync('python3 --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
-        console.log(`System Python3 version: ${python3Version}`);
-      } catch (python3Error) {
-        console.log('Python version check failed, but continuing...');
-      }
-    }
-    
-    console.log('Python environment setup completed');
-  } catch (error) {
-    console.error('Error setting up Python:', error.message);
-    console.log('Continuing despite Python setup errors...');
-  }
-}
-
-// Suppress Python warnings with better error handling
-function suppressPythonWarnings() {
-  console.log('Configuring mise to suppress Python warnings...');
-  
-  try {
-    // Set mise settings with timeout protection
-    const commands = [
-      'mise settings set experimental true',
-      'mise settings set python.compile false',
-      'mise settings set python.timeout 600'
-    ];
-    
-    commands.forEach(cmd => {
-      try {
-        execSync(cmd, { 
-          stdio: 'pipe', 
-          timeout: 10000 // 10 second timeout for each command
-        });
-        console.log(`Successfully executed: ${cmd}`);
-      } catch (error) {
-        console.log(`Note: Command "${cmd}" failed or timed out (this is normal)`);
-      }
-    });
-  } catch (error) {
-    console.log('Note: Could not configure all mise settings (this is normal if mise is not available)');
-  }
-}
+console.log('Running Simplified Netlify build environment fix script...');
 
 // Consolidated function to install and verify pnpm
 function setupPnpm() {
@@ -123,6 +36,30 @@ function setupPnpm() {
   } catch (error) {
     console.error('Error setting up pnpm:', error.message);
     return false;
+  }
+}
+
+// Check system Python (don't try to manage versions)
+function checkPython() {
+  console.log('Checking system Python...');
+  
+  try {
+    // Check what Python version is available
+    try {
+      const pythonVersion = execSync('python --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
+      console.log(`System Python version: ${pythonVersion}`);
+    } catch (pythonError) {
+      try {
+        const python3Version = execSync('python3 --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
+        console.log(`System Python3 version: ${python3Version}`);
+      } catch (python3Error) {
+        console.log('Python not found, but this is usually not needed for Next.js builds');
+      }
+    }
+    
+    console.log('Python check completed');
+  } catch (error) {
+    console.log('Python check failed, but continuing (Python not required for Next.js)...');
   }
 }
 
@@ -245,34 +182,29 @@ function setupPrismaEnvironment() {
 // Main function
 async function main() {
   try {
-    console.log('\n===== ENHANCED NETLIFY BUILD ENVIRONMENT SETUP =====');
+    console.log('\n===== SIMPLIFIED NETLIFY BUILD ENVIRONMENT SETUP =====');
     
-    // Step 1: Suppress Python warnings first
-    suppressPythonWarnings();
+    // Step 1: Check Python (don't try to manage versions)
+    checkPython();
     
-    // Step 2: Setup Python with stable version
-    setupPython();
-    
-    // Step 3: Setup pnpm
+    // Step 2: Setup pnpm
     const pnpmSuccess = setupPnpm();
     if (!pnpmSuccess) {
       console.warn('pnpm setup failed, build may fail later');
     }
     
-    // Step 4: Fix Git references
+    // Step 3: Fix Git references
     fixGitReferences();
     
-    // Step 5: Set up Prisma environment
+    // Step 4: Set up Prisma environment
     setupPrismaEnvironment();
     
-    // Step 6: Verify file structure
+    // Step 5: Verify file structure
     console.log('\n===== VERIFYING FILE STRUCTURE =====');
     const importantFiles = [
       '.env',
       'package.json',
       'prisma/schema.prisma',
-      '.python-version',
-      'runtime.txt',
       '.npmrc'
     ];
     
@@ -283,7 +215,7 @@ async function main() {
     
     console.log('\n===== BUILD ENVIRONMENT SETUP COMPLETED =====');
   } catch (error) {
-    console.error('Error in Enhanced Netlify build environment fix script:', error.message);
+    console.error('Error in Simplified Netlify build environment fix script:', error.message);
     console.log('Continuing with the build despite errors...');
   }
 }
