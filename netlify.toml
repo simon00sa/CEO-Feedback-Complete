@@ -1,13 +1,12 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Optimized build command with stable Python version and timeout handling
-  command = "export PYTHON_VERSION=3.11.9 && mise use python@3.11.9 --global 2>/dev/null || true && mise settings set experimental true 2>/dev/null || true && mise settings set python.compile false 2>/dev/null || true && mise settings set python.timeout 600 2>/dev/null || true && echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
+  # Simplified build command that bypasses Python version management
+  command = "echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && echo 'Using system Python' && python3 --version && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 [build.environment]
   NODE_VERSION = "18.20.0"
-  PYTHON_VERSION = "3.11.9"
   PNPM_VERSION = "10.11.0"
   NODE_OPTIONS = "--max_old_space_size=4096"
   NEXT_TELEMETRY_DISABLED = "1"
@@ -20,21 +19,13 @@
   PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
   NODE_ENV = "production"
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
-  USE_IDIOMATIC_VERSION_FILES = "true"
-  MISE_IDIOMATIC_VERSION_FILES = "1"
-  MISE_EXPERIMENTAL = "1"
   NEXT_DEBUG = "false"
   CI = "true"
-  # Suppress verbose logging and set timeout
-  MISE_LOG_LEVEL = "error"
-  MISE_QUIET = "1"
-  MISE_TIMEOUT = "600"
-  DEBUG = ""
-  WEBPACK_LOGGING_LEVEL = "warn"
+  # Disable Python version management entirely
+  MISE_PYTHON_DEFAULT_PACKAGES_FILE = ""
+  MISE_DISABLE_TOOLS = "python"
   # Enable proper caching
   NETLIFY_CACHE_NODE_MODULES = "true"
-  # Force stable Python version
-  MISE_PYTHON_DEFAULT_PACKAGES_FILE = ""
 [build.processing]
   skip_processing = false
 [build.processing.images]
@@ -53,8 +44,6 @@
     "prisma/**/*",
     ".env",
     ".env.production",
-    ".python-version",
-    "runtime.txt",
     ".npmrc"
   ]
 [[headers]]
