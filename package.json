@@ -8,10 +8,10 @@
     "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
-    "prisma:prebuild": "node ensure-prisma-files.js || echo 'Prisma setup completed with warnings'",
-    "prisma:generate": "node ensure-prisma-files.js || echo 'Prisma setup completed with warnings' && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x prisma generate",
+    "prisma:prebuild": "echo 'Prisma prebuild - handled by netlify-build-fix.js'",
+    "prisma:generate": "PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "node ensure-prisma-files.js || echo 'Prisma setup completed with warnings'"
+    "postinstall": "echo 'Postinstall - handled by netlify-build-fix.js'"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.9.1",
