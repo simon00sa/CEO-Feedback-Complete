@@ -5,10 +5,10 @@ const nextConfig = {
   
   // Image optimization for Netlify
   images: {
-    domains: ['avatars.githubusercontent.com'], // Add your necessary domains here
+    domains: ['avatars.githubusercontent.com'],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
-    unoptimized: true, // Add this for Netlify compatibility
+    unoptimized: true,
   },
   
   // Environment variables
@@ -35,10 +35,38 @@ const nextConfig = {
       ...config.stats,
       logging: 'warn',
       moduleTrace: false,
+      warnings: false,
     };
     
+    // Fix lru-cache module parsing issue
+    config.module.rules.push({
+      test: /node_modules\/lru-cache/,
+      type: 'javascript/auto',
+      resolve: {
+        fullySpecified: false,
+      },
+    });
+    
+    // Exclude lru-cache from being processed by next-flight-client-module-loader
+    config.module.rules.push({
+      test: /node_modules\/lru-cache/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['next/babel'],
+          cacheDirectory: true,
+        },
+      },
+    });
+    
     if (isServer) {
-      // Force lru-cache to resolve to a new version that works with webpack 5
+      // Force lru-cache to resolve to a specific version
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'lru-cache': require.resolve('lru-cache'),
+      };
+    } else {
+      // Client-side alias for lru-cache
       config.resolve.alias = {
         ...config.resolve.alias,
         'lru-cache': require.resolve('lru-cache'),
@@ -64,14 +92,11 @@ const nextConfig = {
       fs: false,
       path: false,
       os: false,
-      // Add crypto-browserify to fix Cache constructor error
       crypto: require.resolve('crypto-browserify'),
       net: false,
       tls: false,
-      // Add additional polyfills for constructor errors
       stream: require.resolve('stream-browserify'),
       buffer: require.resolve('buffer/'),
-      // Add additional fallbacks for Netlify
       child_process: false,
       dns: false,
       http2: false,
@@ -84,7 +109,6 @@ const nextConfig = {
     
     // Add buffer polyfill
     if (!isServer) {
-      // Add buffer to client-side bundle
       config.plugins.push(
         new webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
@@ -97,22 +121,15 @@ const nextConfig = {
   
   // Experimental features to fix Netlify issues
   experimental: {
-    // Prevent optimization issues that can cause constructor errors
     optimizeCss: false,
-    // Add this to fix some page loading issues
-    largePageDataBytes: 128 * 1000, // 128KB
+    largePageDataBytes: 128 * 1000,
+    esmExternals: true, // Better handling of ES modules
   },
   
   // Additional Netlify-specific optimizations
-  poweredByHeader: false, // Remove the X-Powered-By header for security
-  
-  // Cache optimization
+  poweredByHeader: false,
   generateEtags: true,
-  
-  // Simple build ID for Netlify
   generateBuildId: () => 'build',
-  
-  // Disable static optimization for auth-related routes
   staticPageGenerationTimeout: 120,
   distDir: '.next',
   
