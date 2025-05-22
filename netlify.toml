@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Enhanced build command with cache clearing
-  command = "rm -rf node_modules/.cache pnpm-lock.yaml || true && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --prefer-offline=false && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && pnpm build"
+  # Simplified build command with log suppression
+  command = "node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -13,7 +13,7 @@
   PNPM_VERSION = "10.11.0"
   NODE_OPTIONS = "--max_old_space_size=4096"
   NEXT_TELEMETRY_DISABLED = "1"
-  DEBUG = "prisma*,next*,auth*,pnpm*"
+  DEBUG = ""
   NEXT_RUNTIME = "nodejs"
   NEXT_DISABLE_STATICPRERENDERS = "true"
   PRISMA_CLI_BINARY_TARGETS = "debian-openssl-3.0.x,linux-musl-openssl-3.0.x"
@@ -23,11 +23,11 @@
   PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
   NODE_ENV = "production"
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
-  NEXT_DEBUG = "true"
   USE_IDIOMATIC_VERSION_FILES = "true"
   MISE_IDIOMATIC_VERSION_FILES = "1"
-  # Disable caching to force fresh installs
-  NETLIFY_CACHE_NODE_MODULES = "false"
+  # Suppress verbose logging
+  NEXT_DEBUG = "false"
+  CI = "true"
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
@@ -46,7 +46,6 @@
 [build.processing.images]
   compress = true
 [build.cache]
-  # Disable caching to avoid stale dependency issues
   functions = false
   pages = false
   fallback_error = true
