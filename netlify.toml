@@ -1,19 +1,16 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Enhanced build command with cache clearing and explicit branch handling
-  command = "echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && rm -rf .next node_modules/.cache pnpm-lock.yaml || true && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
+  # Optimized build command with proper caching and warning suppression
+  command = "mise settings set experimental true && mise settings set python.compile false && echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-[[plugins]]
-  package = "@netlify/plugin-lighthouse"
 [build.environment]
   NODE_VERSION = "18.20.0"
   PYTHON_VERSION = "3.9.7"
   PNPM_VERSION = "10.11.0"
   NODE_OPTIONS = "--max_old_space_size=4096"
   NEXT_TELEMETRY_DISABLED = "1"
-  DEBUG = ""
   NEXT_RUNTIME = "nodejs"
   NEXT_DISABLE_STATICPRERENDERS = "true"
   PRISMA_CLI_BINARY_TARGETS = "debian-openssl-3.0.x,linux-musl-openssl-3.0.x"
@@ -25,20 +22,23 @@
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   USE_IDIOMATIC_VERSION_FILES = "true"
   MISE_IDIOMATIC_VERSION_FILES = "1"
+  MISE_EXPERIMENTAL = "1"
   NEXT_DEBUG = "false"
   CI = "true"
-  # Force clean builds
-  NETLIFY_CACHE_NODE_MODULES = "false"
-  NETLIFY_SKIP_MANUAL_BUILD = "false"
+  # Suppress verbose logging
+  MISE_LOG_LEVEL = "warn"
+  MISE_QUIET = "1"
+  # Enable proper caching
+  NETLIFY_CACHE_NODE_MODULES = "true"
 [build.processing]
   skip_processing = false
 [build.processing.images]
   compress = true
 [build.cache]
-  # Force clean builds
-  functions = false
-  pages = false
-  fallback_error = true
+  # Enable caching for better performance
+  functions = true
+  pages = true
+  fallback_error = false
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
