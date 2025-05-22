@@ -3,9 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('Running Simplified Netlify build environment fix script...');
+console.log('Running Minimal Netlify build environment fix script...');
 
-// Consolidated function to install and verify pnpm
+// Install and verify pnpm only
 function setupPnpm() {
   console.log('Setting up pnpm...');
   
@@ -27,105 +27,10 @@ function setupPnpm() {
     const pnpmVersion = execSync('pnpm --version', { stdio: 'pipe' }).toString().trim();
     console.log(`Verified pnpm installation, version: ${pnpmVersion}`);
     
-    // Add to PATH if needed
-    const npmBin = execSync('npm bin -g', { stdio: 'pipe' }).toString().trim();
-    process.env.PATH = `${npmBin}:${process.env.PATH}`;
-    console.log(`Added npm global bin to PATH: ${npmBin}`);
-    
     return true;
   } catch (error) {
     console.error('Error setting up pnpm:', error.message);
     return false;
-  }
-}
-
-// Check system Python (don't try to manage versions)
-function checkPython() {
-  console.log('Checking system Python...');
-  
-  try {
-    // Check what Python version is available
-    try {
-      const pythonVersion = execSync('python --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
-      console.log(`System Python version: ${pythonVersion}`);
-    } catch (pythonError) {
-      try {
-        const python3Version = execSync('python3 --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
-        console.log(`System Python3 version: ${python3Version}`);
-      } catch (python3Error) {
-        console.log('Python not found, but this is usually not needed for Next.js builds');
-      }
-    }
-    
-    console.log('Python check completed');
-  } catch (error) {
-    console.log('Python check failed, but continuing (Python not required for Next.js)...');
-  }
-}
-
-// Enhanced Git reference fixing
-function fixGitReferences() {
-  console.log('Checking and fixing Git references...');
-
-  try {
-    // Get current branch name from multiple sources
-    let currentBranch = 'main'; // default fallback
-    
-    if (process.env.BRANCH) {
-      currentBranch = process.env.BRANCH;
-    } else if (process.env.HEAD) {
-      currentBranch = process.env.HEAD;
-    } else if (process.env.NETLIFY_BRANCH) {
-      currentBranch = process.env.NETLIFY_BRANCH;
-    }
-    
-    // Clean up branch name
-    currentBranch = currentBranch.replace(/^refs\/heads\//, '');
-    console.log(`Using branch: ${currentBranch}`);
-    
-    // Check if .git directory exists
-    const gitDir = path.join(process.cwd(), '.git');
-    if (fs.existsSync(gitDir)) {
-      console.log('.git directory exists');
-      
-      // Fix HEAD file
-      const headFile = path.join(gitDir, 'HEAD');
-      const correctHeadContent = `ref: refs/heads/${currentBranch}`;
-      
-      if (fs.existsSync(headFile)) {
-        const currentHeadContent = fs.readFileSync(headFile, 'utf8').trim();
-        
-        if (currentHeadContent !== correctHeadContent) {
-          fs.writeFileSync(headFile, correctHeadContent + '\n');
-          console.log(`HEAD reference fixed: ${correctHeadContent}`);
-        }
-      } else {
-        fs.writeFileSync(headFile, correctHeadContent + '\n');
-        console.log(`Created HEAD file: ${correctHeadContent}`);
-      }
-      
-      // Ensure refs/heads directory exists
-      const refsHeadsDir = path.join(gitDir, 'refs', 'heads');
-      if (!fs.existsSync(refsHeadsDir)) {
-        fs.mkdirSync(refsHeadsDir, { recursive: true });
-      }
-      
-      // Create or update branch reference
-      const branchRefFile = path.join(refsHeadsDir, currentBranch);
-      const commitRef = process.env.COMMIT_REF || 
-                       process.env.NETLIFY_COMMIT_REF || 
-                       'HEAD';
-      
-      if (!fs.existsSync(branchRefFile)) {
-        fs.writeFileSync(branchRefFile, commitRef + '\n');
-        console.log(`Created branch reference: ${currentBranch} -> ${commitRef}`);
-      }
-    }
-    
-    console.log('Git reference fixes completed successfully');
-  } catch (error) {
-    console.error('Error fixing Git references:', error.message);
-    console.log('Continuing despite Git reference errors...');
   }
 }
 
@@ -182,27 +87,20 @@ function setupPrismaEnvironment() {
 // Main function
 async function main() {
   try {
-    console.log('\n===== SIMPLIFIED NETLIFY BUILD ENVIRONMENT SETUP =====');
+    console.log('\n===== MINIMAL NETLIFY BUILD ENVIRONMENT SETUP =====');
     
-    // Step 1: Check Python (don't try to manage versions)
-    checkPython();
-    
-    // Step 2: Setup pnpm
+    // Step 1: Setup pnpm only
     const pnpmSuccess = setupPnpm();
     if (!pnpmSuccess) {
       console.warn('pnpm setup failed, build may fail later');
     }
     
-    // Step 3: Fix Git references
-    fixGitReferences();
-    
-    // Step 4: Set up Prisma environment
+    // Step 2: Set up Prisma environment
     setupPrismaEnvironment();
     
-    // Step 5: Verify file structure
+    // Step 3: Verify file structure
     console.log('\n===== VERIFYING FILE STRUCTURE =====');
     const importantFiles = [
-      '.env',
       'package.json',
       'prisma/schema.prisma',
       '.npmrc'
@@ -213,9 +111,9 @@ async function main() {
       console.log(`${file}: ${exists ? '✓ EXISTS' : '✗ MISSING'}`);
     });
     
-    console.log('\n===== BUILD ENVIRONMENT SETUP COMPLETED =====');
+    console.log('\n===== MINIMAL BUILD ENVIRONMENT SETUP COMPLETED =====');
   } catch (error) {
-    console.error('Error in Simplified Netlify build environment fix script:', error.message);
+    console.error('Error in Minimal Netlify build environment fix script:', error.message);
     console.log('Continuing with the build despite errors...');
   }
 }
