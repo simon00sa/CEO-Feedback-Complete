@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Simplified build command with log suppression
-  command = "node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
+  # Enhanced build command with cache clearing and explicit branch handling
+  command = "echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && rm -rf .next node_modules/.cache pnpm-lock.yaml || true && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -25,9 +25,20 @@
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   USE_IDIOMATIC_VERSION_FILES = "true"
   MISE_IDIOMATIC_VERSION_FILES = "1"
-  # Suppress verbose logging
   NEXT_DEBUG = "false"
   CI = "true"
+  # Force clean builds
+  NETLIFY_CACHE_NODE_MODULES = "false"
+  NETLIFY_SKIP_MANUAL_BUILD = "false"
+[build.processing]
+  skip_processing = false
+[build.processing.images]
+  compress = true
+[build.cache]
+  # Force clean builds
+  functions = false
+  pages = false
+  fallback_error = true
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
@@ -41,14 +52,6 @@
     ".python-version",
     ".npmrc"
   ]
-[build.processing]
-  skip_processing = false
-[build.processing.images]
-  compress = true
-[build.cache]
-  functions = false
-  pages = false
-  fallback_error = true
 [[headers]]
   for = "/*"
   [headers.values]
