@@ -5,6 +5,44 @@ const { execSync } = require('child_process');
 
 console.log('Running Netlify build environment fix script...');
 
+// Set environment variables to suppress warnings
+process.env.MISE_IDIOMATIC_VERSION_FILES = "1";
+process.env.USE_IDIOMATIC_VERSION_FILES = "true";
+
+// Consolidated function to install and verify pnpm
+function setupPnpm() {
+  console.log('Setting up pnpm...');
+  
+  try {
+    // Check if pnpm is already installed
+    try {
+      const pnpmVersion = execSync('pnpm --version', { stdio: 'pipe' }).toString().trim();
+      console.log(`pnpm is already installed, version: ${pnpmVersion}`);
+      return true;
+    } catch (error) {
+      console.log('pnpm not found, installing globally...');
+    }
+    
+    // Install pnpm globally
+    execSync('npm install -g pnpm@10.11.0', { stdio: 'inherit' });
+    console.log('pnpm installed globally');
+    
+    // Verify installation
+    const pnpmVersion = execSync('pnpm --version', { stdio: 'pipe' }).toString().trim();
+    console.log(`Verified pnpm installation, version: ${pnpmVersion}`);
+    
+    // Add to PATH if needed
+    const npmBin = execSync('npm bin -g', { stdio: 'pipe' }).toString().trim();
+    process.env.PATH = `${npmBin}:${process.env.PATH}`;
+    console.log(`Added npm global bin to PATH: ${npmBin}`);
+    
+    return true;
+  } catch (error) {
+    console.error('Error setting up pnpm:', error.message);
+    return false;
+  }
+}
+
 // Fix Git reference format issues
 function fixGitReferences() {
   console.log('Checking and fixing Git references...');
@@ -66,6 +104,33 @@ function fixGitReferences() {
   }
 }
 
+// Setup Python environment
+function setupPython() {
+  console.log('Setting up Python environment...');
+  
+  try {
+    // Create .python-version file
+    fs.writeFileSync('.python-version', '3.9.7');
+    console.log('Created .python-version file');
+    
+    // Check Python installation
+    try {
+      const pythonVersion = execSync('python --version', { stdio: 'pipe' }).toString().trim();
+      console.log(`Python version: ${pythonVersion}`);
+    } catch (pythonError) {
+      console.log('Python not found, checking for python3...');
+      try {
+        const python3Version = execSync('python3 --version', { stdio: 'pipe' }).toString().trim();
+        console.log(`Python3 version: ${python3Version}`);
+      } catch (python3Error) {
+        console.warn('Neither python nor python3 found, but continuing...');
+      }
+    }
+  } catch (error) {
+    console.error('Error setting up Python:', error.message);
+  }
+}
+
 // Ensure Prisma environment is properly set up
 function setupPrismaEnvironment() {
   console.log('Setting up Prisma environment...');
@@ -111,11 +176,16 @@ function setupPrismaEnvironment() {
     if (!fs.existsSync(envPath)) {
       if (process.env.DATABASE_URL) {
         console.log('Creating .env file with DATABASE_URL...');
-        fs.writeFileSync(envPath, `DATABASE_URL="${process.env.DATABASE_URL}"\n`);
+        let envContent = `DATABASE_URL="${process.env.DATABASE_URL}"\n`;
         
         if (process.env.DIRECT_URL) {
-          fs.appendFileSync(envPath, `DIRECT_URL="${process.env.DIRECT_URL}"\n`);
+          envContent += `DIRECT_URL="${process.env.DIRECT_URL}"\n`;
         }
+        
+        envContent += 'PRISMA_BINARY_PLATFORM="debian-openssl-3.0.x"\n';
+        envContent += 'PRISMA_ENGINES_MIRROR="https://binaries.prisma.sh"\n';
+        
+        fs.writeFileSync(envPath, envContent);
       } else {
         console.warn('Warning: DATABASE_URL environment variable not found. Cannot create .env file.');
       }
@@ -143,20 +213,33 @@ function setupPrismaEnvironment() {
 // Main function
 async function main() {
   try {
-    // Step 1: Fix Git references
+    console.log('\n===== NETLIFY BUILD ENVIRONMENT SETUP =====');
+    
+    // Step 1: Setup pnpm
+    const pnpmSuccess = setupPnpm();
+    if (!pnpmSuccess) {
+      console.warn('pnpm setup failed, build may fail later');
+    }
+    
+    // Step 2: Setup Python
+    setupPython();
+    
+    // Step 3: Fix Git references
     fixGitReferences();
     
-    // Step 2: Set up Prisma environment
+    // Step 4: Set up Prisma environment
     setupPrismaEnvironment();
     
-    // Step 3: Display environment information
-    console.log('\nEnvironment Information:');
+    // Step 5: Display environment information
+    console.log('\n===== ENVIRONMENT INFORMATION =====');
     console.log('- NODE_ENV:', process.env.NODE_ENV);
+    console.log('- NODE_VERSION:', process.version);
     console.log('- PWD:', process.cwd());
     console.log('- HOME:', process.env.HOME || '/opt/buildhome');
+    console.log('- MISE_IDIOMATIC_VERSION_FILES:', process.env.MISE_IDIOMATIC_VERSION_FILES);
     
-    // Step 4: Verify environment variables
-    console.log('\nVerifying Environment Variables:');
+    // Step 6: Verify environment variables
+    console.log('\n===== VERIFYING ENVIRONMENT VARIABLES =====');
     if (!process.env.DATABASE_URL) {
       console.warn('Warning: DATABASE_URL is not set in the environment');
     } else {
@@ -169,31 +252,21 @@ async function main() {
       console.log('DIRECT_URL is set (value hidden for security)');
     }
     
-    // Step 5: List important directories for debugging
-    console.log('\nDirectory Structure:');
+    // Step 7: Verify file structure
+    console.log('\n===== VERIFYING FILE STRUCTURE =====');
+    const importantFiles = [
+      '.env',
+      'package.json',
+      'prisma/schema.prisma',
+      '.python-version'
+    ];
     
-    try {
-      console.log('Current Directory:');
-      console.log(execSync('ls -la').toString());
-    } catch (error) {
-      console.error('Error listing current directory:', error.message);
-    }
+    importantFiles.forEach(file => {
+      const exists = fs.existsSync(path.join(process.cwd(), file));
+      console.log(`${file}: ${exists ? '✓ EXISTS' : '✗ MISSING'}`);
+    });
     
-    try {
-      console.log('Prisma Directory:');
-      console.log(execSync('ls -la prisma 2>/dev/null || echo "No prisma directory found"').toString());
-    } catch (error) {
-      console.error('Error listing prisma directory:', error.message);
-    }
-    
-    try {
-      console.log('node_modules/.prisma Directory:');
-      console.log(execSync('ls -la node_modules/.prisma 2>/dev/null || echo "No .prisma directory found"').toString());
-    } catch (error) {
-      console.error('Error listing .prisma directory:', error.message);
-    }
-    
-    console.log('\nNetlify build environment fix script completed successfully');
+    console.log('\n===== BUILD ENVIRONMENT SETUP COMPLETED =====');
   } catch (error) {
     console.error('Error in Netlify build environment fix script:', error);
     // Don't exit with error to allow the build to continue
