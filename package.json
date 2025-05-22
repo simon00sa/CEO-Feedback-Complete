@@ -8,10 +8,9 @@
     "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
-    "prisma:prebuild": "echo 'Prisma prebuild - handled by netlify-build-fix.js'",
-    "prisma:generate": "PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x prisma generate",
+    "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "echo 'Postinstall - handled by netlify-build-fix.js'",
+    "prebuild": "node netlify-webpack-fix.js",
     "clean": "rm -rf .next node_modules/.cache",
     "update-deps": "pnpm update"
   },
