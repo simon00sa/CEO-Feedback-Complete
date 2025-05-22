@@ -11,7 +11,8 @@
     "prisma:prebuild": "echo 'Prisma prebuild - handled by netlify-build-fix.js'",
     "prisma:generate": "PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "echo 'Postinstall - handled by netlify-build-fix.js'"
+    "postinstall": "echo 'Postinstall - handled by netlify-build-fix.js'",
+    "clean": "rm -rf .next node_modules/.cache"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.9.1",
@@ -57,6 +58,7 @@
     "embla-carousel-react": "8.6.0",
     "fs-extra": "^11.2.0",
     "input-otp": "1.4.2",
+    "lru-cache": "7.18.3",
     "lucide-react": "0.511.0",
     "next": "14.1.0",
     "next-auth": "4.24.5",
@@ -96,7 +98,8 @@
   "pnpm": {
     "overrides": {
       "@prisma/engines-version": "6.8.0-43.2060c79ba17c6bb9f5823312b6f6b7f4a845738e",
-      "nodemailer": "^6.9.8"
+      "nodemailer": "^6.9.8",
+      "lru-cache": "7.18.3"
     },
     "peerDependencyRules": {
       "allowedVersions": {
