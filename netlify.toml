@@ -1,7 +1,7 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Simplified build command that bypasses Python version management
-  command = "echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && echo 'Using system Python' && python3 --version && node netlify-build-fix.js && pnpm install --no-frozen-lockfile --silent && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
+  # Completely simplified build command with no Python management
+  command = "echo 'Starting build process...' && echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && node netlify-build-fix.js && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma:generate && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
   publish = ".next"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -21,9 +21,8 @@
   PNPM_INSTALL_FLAGS = "--shamefully-hoist"
   NEXT_DEBUG = "false"
   CI = "true"
-  # Disable Python version management entirely
-  MISE_PYTHON_DEFAULT_PACKAGES_FILE = ""
-  MISE_DISABLE_TOOLS = "python"
+  # Completely disable mise
+  MISE_DISABLE = "1"
   # Enable proper caching
   NETLIFY_CACHE_NODE_MODULES = "true"
 [build.processing]
