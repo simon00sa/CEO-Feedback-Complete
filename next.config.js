@@ -30,26 +30,30 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   
-  // Fix webpack conflicts with LRU cache and other Node.js modules
+  // Fix webpack conflicts and suppress warnings
   webpack: (config, { webpack, isServer, dev }) => {
-    // Suppress debug logs and warnings in production
+    // Completely suppress all debug logs and warnings in production
     if (!dev) {
       config.infrastructureLogging = {
-        level: 'warn',
+        level: 'error',
         debug: false,
       };
       
       config.stats = {
-        ...config.stats,
-        logging: 'warn',
-        moduleTrace: false,
+        all: false,
+        errors: true,
         warnings: false,
-        warningsFilter: [
-          /next:jsconfig-paths-plugin/,
-          /next-metadata-image-loader/,
-          /moduleName did not match any paths pattern/,
-        ],
+        logging: 'error',
       };
+      
+      // Suppress specific webpack warnings
+      config.ignoreWarnings = [
+        /next:jsconfig-paths-plugin/,
+        /next-metadata-image-loader/,
+        /moduleName did not match any paths pattern/,
+        { module: /node_modules/ },
+        /Failed to parse source map/,
+      ];
     }
     
     // Fix lru-cache module parsing issue
@@ -61,19 +65,7 @@ const nextConfig = {
       },
     });
     
-    // Exclude lru-cache from being processed by next-flight-client-module-loader
-    config.module.rules.push({
-      test: /node_modules\/lru-cache/,
-      use: {
-        loader: 'babel-loader',
-        options: {
-          presets: ['next/babel'],
-          cacheDirectory: true,
-        },
-      },
-    });
-    
-    // Fix module resolution for Next.js loaders
+    // Fix module resolution
     config.resolve.alias = {
       ...config.resolve.alias,
       'lru-cache': require.resolve('lru-cache'),
@@ -82,10 +74,6 @@ const nextConfig = {
       '@/lib': path.resolve(__dirname, './src/lib'),
       '@/app': path.resolve(__dirname, './src/app'),
       '@/types': path.resolve(__dirname, './src/types'),
-      // Fix Next.js loader paths
-      'next-metadata-image-loader': path.resolve(__dirname, 'node_modules/next/dist/build/webpack/loaders/next-metadata-image-loader'),
-      'next-app-loader': path.resolve(__dirname, 'node_modules/next/dist/build/webpack/loaders/next-app-loader'),
-      'next-route-loader': path.resolve(__dirname, 'node_modules/next/dist/build/webpack/loaders/next-route-loader'),
     };
     
     // Avoid issues with problematic packages
@@ -121,32 +109,24 @@ const nextConfig = {
       );
     }
     
-    // Suppress specific warnings
-    config.ignoreWarnings = [
-      /next:jsconfig-paths-plugin/,
-      /next-metadata-image-loader/,
-      /moduleName did not match any paths pattern/,
-      { module: /node_modules/ },
-    ];
-    
     return config;
   },
   
-  // Experimental features to fix Netlify issues
+  // Experimental features
   experimental: {
     optimizeCss: false,
     largePageDataBytes: 128 * 1000,
     esmExternals: true,
   },
   
-  // Additional Netlify-specific optimizations
+  // Additional optimizations
   poweredByHeader: false,
   generateEtags: true,
   generateBuildId: () => 'build',
   staticPageGenerationTimeout: 120,
   distDir: '.next',
   
-  // Suppress debug logging
+  // Completely disable logging
   logging: {
     fetches: {
       fullUrl: false,
