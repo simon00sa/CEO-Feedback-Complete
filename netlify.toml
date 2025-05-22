@@ -1,7 +1,8 @@
 # Netlify configuration file for Next.js application
 [build]
-  command = "npm install -g pnpm@10.11.0 && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
+  command = "mise settings add idiomatic_version_file_enable_tools node || true && MISE_DISABLE=1 pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
   publish = ".next"
+  clean = true
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
