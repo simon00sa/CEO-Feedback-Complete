@@ -8,21 +8,87 @@ console.log('Running Enhanced Netlify build environment fix script...');
 // Set environment variables to suppress warnings
 process.env.MISE_IDIOMATIC_VERSION_FILES = "1";
 process.env.USE_IDIOMATIC_VERSION_FILES = "true";
-process.env.MISE_LOG_LEVEL = "warn";
+process.env.MISE_LOG_LEVEL = "error";
 process.env.MISE_QUIET = "1";
 process.env.MISE_EXPERIMENTAL = "1";
+process.env.MISE_TIMEOUT = "600";
 
-// Suppress Python warnings
+// Enhanced Python setup with stable version
+function setupPython() {
+  console.log('Setting up Python environment with stable version...');
+  
+  try {
+    // Force Python version to stable 3.11.9
+    const stablePythonVersion = '3.11.9';
+    
+    // Create .python-version file with stable version
+    fs.writeFileSync('.python-version', stablePythonVersion);
+    console.log(`Created .python-version file with version: ${stablePythonVersion}`);
+    
+    // Create runtime.txt file for Netlify
+    fs.writeFileSync('runtime.txt', `python-${stablePythonVersion}`);
+    console.log(`Created runtime.txt file with version: python-${stablePythonVersion}`);
+    
+    // Try to set Python version using mise with timeout
+    try {
+      console.log('Attempting to set Python version using mise...');
+      
+      // Set a shorter timeout for mise operations
+      execSync(`timeout 30 mise use python@${stablePythonVersion} --global`, { 
+        stdio: 'pipe',
+        timeout: 30000 
+      });
+      console.log(`Successfully set Python version to ${stablePythonVersion}`);
+    } catch (miseError) {
+      console.log('Note: mise Python setup skipped (this is normal if mise is not available or times out)');
+      console.log('Continuing with system Python...');
+    }
+    
+    // Check what Python version is actually available
+    try {
+      const pythonVersion = execSync('python --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
+      console.log(`System Python version: ${pythonVersion}`);
+    } catch (pythonError) {
+      try {
+        const python3Version = execSync('python3 --version', { stdio: 'pipe', timeout: 5000 }).toString().trim();
+        console.log(`System Python3 version: ${python3Version}`);
+      } catch (python3Error) {
+        console.log('Python version check failed, but continuing...');
+      }
+    }
+    
+    console.log('Python environment setup completed');
+  } catch (error) {
+    console.error('Error setting up Python:', error.message);
+    console.log('Continuing despite Python setup errors...');
+  }
+}
+
+// Suppress Python warnings with better error handling
 function suppressPythonWarnings() {
   console.log('Configuring mise to suppress Python warnings...');
   
   try {
-    // Set mise settings to suppress warnings
-    execSync('mise settings set experimental true', { stdio: 'pipe' });
-    execSync('mise settings set python.compile false', { stdio: 'pipe' });
-    console.log('Mise settings configured to suppress warnings');
+    // Set mise settings with timeout protection
+    const commands = [
+      'mise settings set experimental true',
+      'mise settings set python.compile false',
+      'mise settings set python.timeout 600'
+    ];
+    
+    commands.forEach(cmd => {
+      try {
+        execSync(cmd, { 
+          stdio: 'pipe', 
+          timeout: 10000 // 10 second timeout for each command
+        });
+        console.log(`Successfully executed: ${cmd}`);
+      } catch (error) {
+        console.log(`Note: Command "${cmd}" failed or timed out (this is normal)`);
+      }
+    });
   } catch (error) {
-    console.log('Note: Could not configure mise settings (this is normal if mise is not available)');
+    console.log('Note: Could not configure all mise settings (this is normal if mise is not available)');
   }
 }
 
@@ -68,7 +134,6 @@ function fixGitReferences() {
     // Get current branch name from multiple sources
     let currentBranch = 'main'; // default fallback
     
-    // Try to get branch from environment variables
     if (process.env.BRANCH) {
       currentBranch = process.env.BRANCH;
     } else if (process.env.HEAD) {
@@ -77,7 +142,7 @@ function fixGitReferences() {
       currentBranch = process.env.NETLIFY_BRANCH;
     }
     
-    // Clean up branch name (remove refs/heads/ prefix if present)
+    // Clean up branch name
     currentBranch = currentBranch.replace(/^refs\/heads\//, '');
     console.log(`Using branch: ${currentBranch}`);
     
@@ -124,32 +189,6 @@ function fixGitReferences() {
   } catch (error) {
     console.error('Error fixing Git references:', error.message);
     console.log('Continuing despite Git reference errors...');
-  }
-}
-
-// Setup Python environment
-function setupPython() {
-  console.log('Setting up Python environment...');
-  
-  try {
-    // Create .python-version file
-    fs.writeFileSync('.python-version', '3.9.7');
-    console.log('Created .python-version file');
-    
-    // Check Python installation
-    try {
-      const pythonVersion = execSync('python --version', { stdio: 'pipe' }).toString().trim();
-      console.log(`Python version: ${pythonVersion}`);
-    } catch (pythonError) {
-      try {
-        const python3Version = execSync('python3 --version', { stdio: 'pipe' }).toString().trim();
-        console.log(`Python3 version: ${python3Version}`);
-      } catch (python3Error) {
-        console.log('Python not found, but continuing...');
-      }
-    }
-  } catch (error) {
-    console.error('Error setting up Python:', error.message);
   }
 }
 
@@ -208,17 +247,17 @@ async function main() {
   try {
     console.log('\n===== ENHANCED NETLIFY BUILD ENVIRONMENT SETUP =====');
     
-    // Step 1: Suppress Python warnings
+    // Step 1: Suppress Python warnings first
     suppressPythonWarnings();
     
-    // Step 2: Setup pnpm
+    // Step 2: Setup Python with stable version
+    setupPython();
+    
+    // Step 3: Setup pnpm
     const pnpmSuccess = setupPnpm();
     if (!pnpmSuccess) {
       console.warn('pnpm setup failed, build may fail later');
     }
-    
-    // Step 3: Setup Python
-    setupPython();
     
     // Step 4: Fix Git references
     fixGitReferences();
@@ -233,6 +272,7 @@ async function main() {
       'package.json',
       'prisma/schema.prisma',
       '.python-version',
+      'runtime.txt',
       '.npmrc'
     ];
     
