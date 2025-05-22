@@ -1,53 +1,35 @@
 # Netlify configuration file for Next.js application
 [build]
-  # Enhanced build command with comprehensive Prisma setup
-  command = "echo 'Starting enhanced build process...' && echo 'Branch: $BRANCH' && echo 'Head: $HEAD' && node netlify-build-fix.js && pnpm install --no-frozen-lockfile && echo 'Generating Prisma client...' && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma pnpm prisma generate && echo 'Building Next.js application...' && NODE_OPTIONS='--max_old_space_size=4096' NODE_ENV=production pnpm build"
+  command = "npm install -g pnpm@10.11.0 && pnpm install --no-frozen-lockfile && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x pnpm prisma generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
   publish = ".next"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
 [build.environment]
   NODE_VERSION = "18.20.0"
   PNPM_VERSION = "10.11.0"
   NODE_OPTIONS = "--max_old_space_size=4096"
   NEXT_TELEMETRY_DISABLED = "1"
-  NEXT_RUNTIME = "nodejs"
-  NEXT_DISABLE_STATICPRERENDERS = "true"
-  PRISMA_CLI_BINARY_TARGETS = "debian-openssl-3.0.x,linux-musl-openssl-3.0.x"
-  PRISMA_CLIENT_ENGINE_TYPE = "library"
   PRISMA_BINARY_PLATFORM = "debian-openssl-3.0.x"
-  PRISMA_ENGINES_MIRROR = "https://binaries.prisma.sh"
   PRISMA_SCHEMA_PATH = "./prisma/schema.prisma"
   NODE_ENV = "production"
-  PNPM_INSTALL_FLAGS = "--shamefully-hoist"
-  NEXT_DEBUG = "false"
-  CI = "true"
-  # Completely disable mise
   MISE_DISABLE = "1"
-  # Enable proper caching
   NETLIFY_CACHE_NODE_MODULES = "true"
-[build.processing]
-  skip_processing = false
-[build.processing.images]
-  compress = true
-[build.cache]
-  functions = true
-  pages = true
-  fallback_error = false
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["@prisma/client", "@prisma/engines", "prisma"]
+  external_node_modules = ["@prisma/client", "prisma"]
   included_files = [
     "node_modules/.prisma/**/*",
-    "node_modules/@prisma/client/**/*", 
-    "node_modules/.pnpm/**/*",
+    "node_modules/@prisma/client/**/*",
     "prisma/**/*",
     "prisma/schema.prisma",
-    "schema.prisma",
     ".env",
-    ".env.production",
-    ".npmrc"
+    ".env.production"
   ]
+
 [[headers]]
   for = "/*"
   [headers.values]
@@ -55,29 +37,33 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.supabase.co;"
-    Report-To = "{\"group\":\"default\",\"max_age\":31536000,\"endpoints\":[{\"url\":\"/.netlify/functions/report-csp-violations\"}]}"
+
 [[headers]]
   for = "/api/auth/*"
   [headers.values]
     Cache-Control = "no-store, max-age=0, must-revalidate"
+
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
 [[headers]]
   for = "/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
 [[redirects]]
   from = "/api/auth/*"
   to = "/.netlify/functions/next-api/:splat"
   status = 200
   force = true
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/next-api/:splat"
   status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
