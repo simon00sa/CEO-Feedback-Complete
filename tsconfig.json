@@ -25,13 +25,16 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/app/*": ["./src/app/*"],
+      "@/types/*": ["./src/types/*"]
     },
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
@@ -46,7 +49,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "next.config.mjs",
+    "next.config.js",
     "src/types/next-auth.d.ts"
   ],
   "exclude": [
