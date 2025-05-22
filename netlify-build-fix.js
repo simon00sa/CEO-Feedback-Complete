@@ -3,11 +3,28 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('Running Netlify build environment fix script...');
+console.log('Running Enhanced Netlify build environment fix script...');
 
 // Set environment variables to suppress warnings
 process.env.MISE_IDIOMATIC_VERSION_FILES = "1";
 process.env.USE_IDIOMATIC_VERSION_FILES = "true";
+process.env.MISE_LOG_LEVEL = "warn";
+process.env.MISE_QUIET = "1";
+process.env.MISE_EXPERIMENTAL = "1";
+
+// Suppress Python warnings
+function suppressPythonWarnings() {
+  console.log('Configuring mise to suppress Python warnings...');
+  
+  try {
+    // Set mise settings to suppress warnings
+    execSync('mise settings set experimental true', { stdio: 'pipe' });
+    execSync('mise settings set python.compile false', { stdio: 'pipe' });
+    console.log('Mise settings configured to suppress warnings');
+  } catch (error) {
+    console.log('Note: Could not configure mise settings (this is normal if mise is not available)');
+  }
+}
 
 // Consolidated function to install and verify pnpm
 function setupPnpm() {
@@ -43,78 +60,69 @@ function setupPnpm() {
   }
 }
 
-// Fix Git reference format issues
+// Enhanced Git reference fixing
 function fixGitReferences() {
   console.log('Checking and fixing Git references...');
 
   try {
-    // Get current branch name from environment or default to main
-    const currentBranch = process.env.BRANCH || process.env.HEAD || 'main';
-    console.log(`Current branch: ${currentBranch}`);
+    // Get current branch name from multiple sources
+    let currentBranch = 'main'; // default fallback
+    
+    // Try to get branch from environment variables
+    if (process.env.BRANCH) {
+      currentBranch = process.env.BRANCH;
+    } else if (process.env.HEAD) {
+      currentBranch = process.env.HEAD;
+    } else if (process.env.NETLIFY_BRANCH) {
+      currentBranch = process.env.NETLIFY_BRANCH;
+    }
+    
+    // Clean up branch name (remove refs/heads/ prefix if present)
+    currentBranch = currentBranch.replace(/^refs\/heads\//, '');
+    console.log(`Using branch: ${currentBranch}`);
     
     // Check if .git directory exists
     const gitDir = path.join(process.cwd(), '.git');
     if (fs.existsSync(gitDir)) {
       console.log('.git directory exists');
       
-      // Fix HEAD file if it exists
+      // Fix HEAD file
       const headFile = path.join(gitDir, 'HEAD');
+      const correctHeadContent = `ref: refs/heads/${currentBranch}`;
+      
       if (fs.existsSync(headFile)) {
-        let headContent = fs.readFileSync(headFile, 'utf8').trim();
-        console.log('Current HEAD content:', headContent);
+        const currentHeadContent = fs.readFileSync(headFile, 'utf8').trim();
         
-        // Fix the reference format by ensuring it starts with 'ref:'
-        if (!headContent.startsWith('ref:')) {
-          console.log('Fixing HEAD reference format...');
-          const fixedHead = `ref: refs/heads/${currentBranch}`;
-          fs.writeFileSync(headFile, fixedHead + '\n');
-          console.log(`HEAD reference fixed: ${fixedHead}`);
+        if (currentHeadContent !== correctHeadContent) {
+          fs.writeFileSync(headFile, correctHeadContent + '\n');
+          console.log(`HEAD reference fixed: ${correctHeadContent}`);
         }
       } else {
-        console.log('HEAD file does not exist, creating it...');
-        const newHead = `ref: refs/heads/${currentBranch}`;
-        fs.writeFileSync(headFile, newHead + '\n');
-        console.log(`Created HEAD file: ${newHead}`);
+        fs.writeFileSync(headFile, correctHeadContent + '\n');
+        console.log(`Created HEAD file: ${correctHeadContent}`);
       }
       
       // Ensure refs/heads directory exists
-      const refsDir = path.join(gitDir, 'refs', 'heads');
-      if (!fs.existsSync(refsDir)) {
-        console.log('Creating refs/heads directory...');
-        fs.mkdirSync(refsDir, { recursive: true });
+      const refsHeadsDir = path.join(gitDir, 'refs', 'heads');
+      if (!fs.existsSync(refsHeadsDir)) {
+        fs.mkdirSync(refsHeadsDir, { recursive: true });
       }
       
-      // Create branch reference if it doesn't exist
-      const branchRef = path.join(refsDir, currentBranch);
-      if (!fs.existsSync(branchRef)) {
-        console.log(`Creating ${currentBranch} branch reference...`);
-        // Use COMMIT_REF if available, otherwise use a placeholder
-        const commitRef = process.env.COMMIT_REF || process.env.NETLIFY_COMMIT_REF || '0000000000000000000000000000000000000000';
-        fs.writeFileSync(branchRef, commitRef + '\n');
+      // Create or update branch reference
+      const branchRefFile = path.join(refsHeadsDir, currentBranch);
+      const commitRef = process.env.COMMIT_REF || 
+                       process.env.NETLIFY_COMMIT_REF || 
+                       'HEAD';
+      
+      if (!fs.existsSync(branchRefFile)) {
+        fs.writeFileSync(branchRefFile, commitRef + '\n');
         console.log(`Created branch reference: ${currentBranch} -> ${commitRef}`);
       }
-    } else {
-      console.log('.git directory does not exist, creating minimal structure...');
-      
-      // Create minimal .git structure
-      fs.mkdirSync(gitDir, { recursive: true });
-      
-      const headContent = `ref: refs/heads/${currentBranch}`;
-      fs.writeFileSync(path.join(gitDir, 'HEAD'), headContent + '\n');
-      console.log(`Created minimal .git structure with HEAD: ${headContent}`);
-      
-      const refsHeadsDir = path.join(gitDir, 'refs', 'heads');
-      fs.mkdirSync(refsHeadsDir, { recursive: true });
-      
-      const commitRef = process.env.COMMIT_REF || process.env.NETLIFY_COMMIT_REF || '0000000000000000000000000000000000000000';
-      fs.writeFileSync(path.join(refsHeadsDir, currentBranch), commitRef + '\n');
-      console.log(`Created branch reference: ${currentBranch} -> ${commitRef}`);
     }
     
     console.log('Git reference fixes completed successfully');
   } catch (error) {
     console.error('Error fixing Git references:', error.message);
-    // Continue with the build despite errors
     console.log('Continuing despite Git reference errors...');
   }
 }
@@ -133,12 +141,11 @@ function setupPython() {
       const pythonVersion = execSync('python --version', { stdio: 'pipe' }).toString().trim();
       console.log(`Python version: ${pythonVersion}`);
     } catch (pythonError) {
-      console.log('Python not found, checking for python3...');
       try {
         const python3Version = execSync('python3 --version', { stdio: 'pipe' }).toString().trim();
         console.log(`Python3 version: ${python3Version}`);
       } catch (python3Error) {
-        console.warn('Neither python nor python3 found, but continuing...');
+        console.log('Python not found, but continuing...');
       }
     }
   } catch (error) {
@@ -151,26 +158,6 @@ function setupPrismaEnvironment() {
   console.log('Setting up Prisma environment...');
   
   try {
-    // Create necessary Prisma config directories
-    const homeDir = process.env.HOME || '/opt/buildhome';
-    const configDir = path.join(homeDir, '.config', 'prisma-nodejs');
-    
-    if (!fs.existsSync(configDir)) {
-      console.log(`Creating Prisma config directory: ${configDir}`);
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-    
-    // Create a commands.json file if it doesn't exist
-    const commandsJsonPath = path.join(configDir, 'commands.json');
-    if (!fs.existsSync(commandsJsonPath)) {
-      console.log(`Creating commands.json at: ${commandsJsonPath}`);
-      const commandsConfig = {
-        "version": "6.8.1",
-        "commands": {}
-      };
-      fs.writeFileSync(commandsJsonPath, JSON.stringify(commandsConfig, null, 2));
-    }
-    
     // Verify if prisma directory exists
     const prismaDir = path.join(process.cwd(), 'prisma');
     if (!fs.existsSync(prismaDir)) {
@@ -182,7 +169,6 @@ function setupPrismaEnvironment() {
     const schemaPath = path.join(prismaDir, 'schema.prisma');
     if (!fs.existsSync(schemaPath)) {
       console.error('Schema file not found at expected location:', schemaPath);
-      // Continue with the build despite errors
     } else {
       console.log('Schema file found at:', schemaPath);
     }
@@ -204,30 +190,15 @@ function setupPrismaEnvironment() {
         fs.writeFileSync(envPath, envContent);
         console.log('.env file created successfully');
       } else {
-        console.warn('Warning: DATABASE_URL environment variable not found. Cannot create .env file.');
+        console.warn('Warning: DATABASE_URL environment variable not found');
       }
     } else {
       console.log('.env file already exists');
     }
     
-    // Create engines_manifest.json if needed
-    const enginesDir = path.join(process.cwd(), 'node_modules', '.prisma');
-    if (!fs.existsSync(enginesDir)) {
-      console.log('Creating .prisma engines directory...');
-      fs.mkdirSync(enginesDir, { recursive: true });
-      
-      const manifestPath = path.join(enginesDir, 'engines_manifest.json');
-      const manifestConfig = {
-        "version": "6.8.1"
-      };
-      fs.writeFileSync(manifestPath, JSON.stringify(manifestConfig, null, 2));
-      console.log('Created engines_manifest.json');
-    }
-    
     console.log('Prisma environment setup completed');
   } catch (error) {
     console.error('Error setting up Prisma environment:', error.message);
-    // Continue with the build despite errors
     console.log('Continuing despite Prisma setup errors...');
   }
 }
@@ -235,48 +206,27 @@ function setupPrismaEnvironment() {
 // Main function
 async function main() {
   try {
-    console.log('\n===== NETLIFY BUILD ENVIRONMENT SETUP =====');
+    console.log('\n===== ENHANCED NETLIFY BUILD ENVIRONMENT SETUP =====');
     
-    // Step 1: Setup pnpm
+    // Step 1: Suppress Python warnings
+    suppressPythonWarnings();
+    
+    // Step 2: Setup pnpm
     const pnpmSuccess = setupPnpm();
     if (!pnpmSuccess) {
       console.warn('pnpm setup failed, build may fail later');
     }
     
-    // Step 2: Setup Python
+    // Step 3: Setup Python
     setupPython();
     
-    // Step 3: Fix Git references (FIXED VERSION)
+    // Step 4: Fix Git references
     fixGitReferences();
     
-    // Step 4: Set up Prisma environment
+    // Step 5: Set up Prisma environment
     setupPrismaEnvironment();
     
-    // Step 5: Display environment information
-    console.log('\n===== ENVIRONMENT INFORMATION =====');
-    console.log('- NODE_ENV:', process.env.NODE_ENV || 'not set');
-    console.log('- NODE_VERSION:', process.version);
-    console.log('- PWD:', process.cwd());
-    console.log('- HOME:', process.env.HOME || '/opt/buildhome');
-    console.log('- BRANCH:', process.env.BRANCH || process.env.HEAD || 'main');
-    console.log('- COMMIT_REF:', process.env.COMMIT_REF || process.env.NETLIFY_COMMIT_REF || 'not set');
-    console.log('- MISE_IDIOMATIC_VERSION_FILES:', process.env.MISE_IDIOMATIC_VERSION_FILES);
-    
-    // Step 6: Verify environment variables
-    console.log('\n===== VERIFYING ENVIRONMENT VARIABLES =====');
-    if (!process.env.DATABASE_URL) {
-      console.warn('Warning: DATABASE_URL is not set in the environment');
-    } else {
-      console.log('DATABASE_URL is set (value hidden for security)');
-    }
-    
-    if (!process.env.DIRECT_URL) {
-      console.warn('Warning: DIRECT_URL is not set in the environment');
-    } else {
-      console.log('DIRECT_URL is set (value hidden for security)');
-    }
-    
-    // Step 7: Verify file structure
+    // Step 6: Verify file structure
     console.log('\n===== VERIFYING FILE STRUCTURE =====');
     const importantFiles = [
       '.env',
@@ -293,8 +243,7 @@ async function main() {
     
     console.log('\n===== BUILD ENVIRONMENT SETUP COMPLETED =====');
   } catch (error) {
-    console.error('Error in Netlify build environment fix script:', error.message);
-    // Don't exit with error to allow the build to continue
+    console.error('Error in Enhanced Netlify build environment fix script:', error.message);
     console.log('Continuing with the build despite errors...');
   }
 }
