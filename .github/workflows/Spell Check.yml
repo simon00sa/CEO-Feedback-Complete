@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: streetsidesoftware/cspell-action@v2
+      - uses: actions/setup-node@v3
         with:
-          files: "**/*.{js,jsx,ts,tsx,md,html,css}"
+          node-version: '18'
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.11.0'
+      - run: pnpm install
+      - run: pnpm exec cspell "**/*.{js,jsx,ts,tsx,md,html,css}"
