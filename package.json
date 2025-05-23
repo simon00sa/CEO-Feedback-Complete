@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build --no-lint",
     "start": "next start",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint .",
     "check-paths": "node scripts/check-path-consistency.js",
     "spellcheck": "cspell \"**/*.{js,jsx,ts,tsx,md,html,css}\"",
     "prisma:generate": "prisma generate",
