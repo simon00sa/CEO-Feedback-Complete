@@ -1,0 +1,19 @@
+name: Case Sensitivity Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-case-sensitivity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check for case conflicts
+        run: |
+          find . -type f -not -path "*/node_modules/*" -not -path "*/.git/*" | sort -f | uniq -di | while read -r file; do
+            echo "Case conflict detected: $file"
+            exit 1
+          done
