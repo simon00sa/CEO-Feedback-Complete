@@ -59,6 +59,8 @@ const nextConfig = {
       /Failed to parse source map/,
       /Critical dependency/,
       /the request of a dependency is an expression/,
+      /skipping request/,
+      /inside node_modules/
     ];
     
     // Override module resolution for Next.js internal modules
@@ -113,7 +115,7 @@ const nextConfig = {
     };
     
     // Add buffer polyfill for client-side
-    if (!isServer) {
+    if (!isServer ) {
       config.plugins.push(
         new webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
@@ -123,7 +125,7 @@ const nextConfig = {
     
     // Disable verbose plugin logging
     config.plugins = config.plugins.map(plugin => {
-      if (plugin.constructor.name === 'JsConfigPathsPlugin') {
+      if (plugin.constructor && plugin.constructor.name === 'JsConfigPathsPlugin') {
         // If we can disable the plugin's verbose logging, do it
         plugin.verbose = false;
       }
@@ -137,7 +139,7 @@ const nextConfig = {
   experimental: {
     optimizeCss: false,
     largePageDataBytes: 128 * 1000,
-    esmExternals: true,
+    esmExternals: 'loose', // Changed from true to 'loose' for better compatibility
   },
   
   // Additional optimizations
