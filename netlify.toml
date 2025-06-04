@@ -1,6 +1,6 @@
 # Netlify configuration file for Next.js application
 [build]
-  command = "node prisma-setup.js && mise settings add idiomatic_version_file_enable_tools node || true && MISE_DISABLE=1 pnpm install --no-frozen-lockfile && cp -f prisma/schema.prisma schema.prisma && PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x PRISMA_SCHEMA_PATH=./prisma/schema.prisma NODE_ENV=production pnpm prisma generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
+  command = "node prisma-setup.js && cp -f prisma/schema.prisma schema.prisma && PRISMA_SCHEMA_PATH=./prisma/schema.prisma PRISMA_BINARY_PLATFORM=debian-openssl-3.0.x mise settings add idiomatic_version_file_enable_tools node || true && MISE_DISABLE=1 pnpm install --no-frozen-lockfile && pnpm prisma generate && NODE_OPTIONS='--max_old_space_size=4096' pnpm build"
   publish = ".next"
   clean = true
 
